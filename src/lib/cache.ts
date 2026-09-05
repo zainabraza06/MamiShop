@@ -67,7 +67,7 @@ export async function invalidate(...keys: string[]): Promise<void> {
  * more than cache hit rate, and these keys are cheap to rebuild.
  */
 export async function invalidateCatalogue(productSlug?: string): Promise<void> {
-  const keys = [CACHE_KEYS.categoryTree, CACHE_KEYS.homepageContent];
+  const keys: string[] = [CACHE_KEYS.categoryTree, CACHE_KEYS.homepageContent];
   if (productSlug) keys.push(CACHE_KEYS.product(productSlug));
   await invalidate(...keys);
 }

@@ -41,7 +41,15 @@ function assertInteger(value: number): void {
   }
 }
 
-/** 1250.5 -> 125050 (PKR). Rounds half away from zero, like a cash register. */
+/**
+ * 1250.5 -> 125050 (PKR). Rounds half away from zero, like a cash register.
+ *
+ * This is a boundary conversion, used where a human typed a decimal price.
+ * It inherits whatever imprecision the float argument already carries — 1.005
+ * is really 1.00499..., so it becomes 100, not 101. That ambiguity exists
+ * before this function is called; internally every amount stays an integer in
+ * minor units and never round-trips through a float.
+ */
 export function toMinorUnits(amount: number, currency: Currency = 'PKR'): number {
   if (!Number.isFinite(amount)) throw new TypeError('Amount must be a finite number');
   const scaled = amount * factor(currency);
