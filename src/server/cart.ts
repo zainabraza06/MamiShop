@@ -2,6 +2,7 @@ import 'server-only';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
 import { randomToken } from '@/lib/crypto';
+import { canonicalJson } from '@/lib/canonical-json';
 import { getSessionUserId } from '@/server/session';
 // `Prisma` is used as a value too (Prisma.JsonNull), so it cannot be a type-only import.
 import { Prisma } from '@prisma/client';
@@ -156,11 +157,14 @@ export async function mergeGuestCart(userId: string): Promise<void> {
     return;
   }
 
+  // Canonical (key-sorted) serialisation, because both sides of this
+  // comparison were read back from Postgres jsonb, which does not preserve
+  // the key order they were written in.
   const lineKey = (item: {
     productId: string;
     variantId: string | null;
     measurementValues: Prisma.JsonValue | null;
-  }) => `${item.productId}:${item.variantId ?? ''}:${JSON.stringify(item.measurementValues)}`;
+  }) => `${item.productId}:${item.variantId ?? ''}:${canonicalJson(item.measurementValues)}`;
 
   const existingByKey = new Map(userCart.items.map((item) => [lineKey(item), item]));
 

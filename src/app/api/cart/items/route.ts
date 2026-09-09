@@ -12,6 +12,7 @@ import {
 import { NotFoundError, OutOfStockError, ValidationError } from '@/lib/errors';
 import { getSessionUserId } from '@/server/session';
 import { Prisma } from '@prisma/client';
+import { deepEqualIgnoringKeyOrder } from '@/lib/canonical-json';
 
 /**
  * Cart line management.
@@ -118,7 +119,9 @@ export const POST = withErrorHandling(async (request) => {
     (item) =>
       item.productId === product.id &&
       item.variantId === (input.variantId ?? null) &&
-      JSON.stringify(item.measurementValues) === JSON.stringify(measurementValues) &&
+      // Key order must not matter: the stored value comes back from Postgres
+      // jsonb in its own key order, not the order we wrote it in.
+      deepEqualIgnoringKeyOrder(item.measurementValues, measurementValues) &&
       (item.customNote ?? '') === (input.customNote ?? ''),
   );
 
