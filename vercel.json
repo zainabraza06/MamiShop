@@ -1,0 +1,28 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": ["bom1"],
+  "crons": [
+    {
+      "path": "/api/cron/jobs",
+      "comment": "Drains the transactional outbox: order emails, SMS, invoices.",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/abandoned-carts",
+      "comment": "Queues recovery emails for carts idle 4-72 hours.",
+      "schedule": "0 */3 * * *"
+    }
+  ],
+  "functions": {
+    "src/app/api/cron/**": { "maxDuration": 60 },
+    "src/app/api/checkout/route.ts": { "maxDuration": 30 },
+    "src/app/api/webhooks/**": { "maxDuration": 30 }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    }
+  ]
+}
