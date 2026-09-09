@@ -19,9 +19,14 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardHeader.displayName = 'CardHeader';
 
+/**
+ * `as` lets the caller pick the right heading level for the page outline.
+ * A card title is usually an h3, but when the card IS the page (a sign-in
+ * form, say) it needs to be the h1, or the document starts at level 3.
+ */
 const CardTitle = React.forwardRef<
   HTMLHeadingElement,
-  React.HTMLAttributes<HTMLHeadingElement> & { as?: 'h2' | 'h3' | 'h4' }
+  React.HTMLAttributes<HTMLHeadingElement> & { as?: 'h1' | 'h2' | 'h3' | 'h4' }
 >(({ className, as: Tag = 'h3', ...props }, ref) => (
   <Tag
     ref={ref}
