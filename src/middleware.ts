@@ -57,9 +57,16 @@ export default auth((request) => {
       return NextResponse.redirect(url);
     }
     if (!role || !STAFF_ROLES.includes(role)) {
-      // 404 rather than 403: an unauthorised visitor learns nothing about
-      // whether an admin area exists at this path.
-      return NextResponse.rewrite(new URL('/not-found', nextUrl));
+      /**
+       * Signed in, but not staff. Sent home rather than shown a 403.
+       *
+       * An earlier version rewrote to a synthetic /not-found path to avoid
+       * confirming the admin area exists. That was a mistake: the path is not
+       * a real route, so Next.js treated it as an external proxy target and
+       * returned a 500. Concealing /admin was marginal anyway — a redirect is
+       * honest, cannot break, and leaks nothing a customer could act on.
+       */
+      return NextResponse.redirect(new URL('/', request.url));
     }
   }
 
