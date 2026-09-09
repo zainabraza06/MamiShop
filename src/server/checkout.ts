@@ -355,7 +355,15 @@ export async function placeOrder(ctx: PlaceOrderContext): Promise<PlacedOrder> {
                 // Frozen measurements. Editing the saved profile later must
                 // never change a garment already being cut.
                 measurementSnapshot: item.measurementValues ?? Prisma.JsonNull,
-                measurementTemplate: item.product.sizingTemplate,
+                // Resolved through the same product -> category -> default
+                // chain the product page used to render the form. Storing the
+                // product's own (usually null) template would leave the tailor
+                // sheet unable to label the numbers it was given.
+                measurementTemplate: item.measurementValues
+                  ? (item.product.sizingTemplate ??
+                    item.product.category.sizingTemplate ??
+                    'WOMENS_STITCHED')
+                  : null,
                 customNote: item.customNote,
               };
             }),

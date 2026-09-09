@@ -8,7 +8,6 @@ import { ProductFilters } from '@/components/product/product-filters';
 import { LoadMore } from '@/components/product/load-more';
 import { Breadcrumbs } from '@/components/layout/breadcrumbs';
 import { EmptyState } from '@/components/ui/empty-state';
-import { ProductGridSkeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -144,14 +143,6 @@ export default async function ProductsPage({ searchParams }: PageProps) {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-export function Loading() {
-  return (
-    <div className="container py-12">
-      <ProductGridSkeleton />
     </div>
   );
 }

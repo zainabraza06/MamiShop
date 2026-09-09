@@ -58,7 +58,10 @@ export default async function CartPage() {
     stitchingDays: item.product.stitchingDays,
     measurementUnit: item.measurementUnit,
     measurementValues: item.measurementValues as Record<string, number> | null,
-    measurementTemplate: item.product.sizingTemplate,
+    // Same product -> category -> default chain the product page used; most
+    // products inherit their template rather than setting one.
+    measurementTemplate:
+      item.product.sizingTemplate ?? item.product.category.sizingTemplate ?? 'WOMENS_STITCHED',
     customNote: item.customNote,
     issue: issues.find((i) => i.itemId === item.id) ?? null,
   }));

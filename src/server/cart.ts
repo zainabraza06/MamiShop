@@ -40,6 +40,9 @@ export const cartItemInclude = {
           sizingTemplate: true,
           status: true,
           archivedAt: true,
+          // Needed to resolve the sizing template, which most products inherit
+          // from their category rather than setting themselves.
+          category: { select: { sizingTemplate: true } },
           images: {
             where: { variantId: null },
             orderBy: { position: 'asc' },
