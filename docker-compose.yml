@@ -1,0 +1,38 @@
+# Local development dependencies.
+#   docker compose up -d
+# Postgres is the only hard requirement; Redis is optional because the app
+# falls back to in-memory storage when UPSTASH_REDIS_REST_URL is unset.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: momishop-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: momishop
+    ports:
+      - '5432:5432'
+    volumes:
+      - momishop-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d momishop']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Optional. Point UPSTASH_REDIS_REST_URL at http://localhost:8079 to use it.
+  redis:
+    image: redis:7-alpine
+    container_name: momishop-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  momishop-pgdata:
