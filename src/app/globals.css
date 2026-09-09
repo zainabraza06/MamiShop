@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * MomiShop design tokens.
+ *
+ * Palette: warm sand and linen grounds, a muted clay accent, deep ink text.
+ * Chosen to suit modest fashion photography — saturated brand colours fight
+ * the garments, warm neutrals recede behind them.
+ *
+ * Every foreground/background pair below meets WCAG AA (4.5:1 for body text,
+ * 3:1 for large text and UI boundaries). The contrast ratios are noted where
+ * a pairing is close enough that a future tweak could quietly break it.
+ */
+
+@layer base {
+  :root {
+    /* Grounds */
+    --background: 35 30% 98%; /* #FBF9F6 warm linen */
+    --foreground: 25 18% 15%; /* #2C2622 ink — 14.8:1 on background */
+
+    --card: 0 0% 100%;
+    --card-foreground: 25 18% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 25 18% 15%;
+
+    /* Clay accent, dark enough for white text at 5.9:1 */
+    --primary: 18 32% 38%; /* #7E5A48 */
+    --primary-foreground: 35 30% 98%;
+
+    --secondary: 32 24% 92%; /* #EFE8E1 */
+    --secondary-foreground: 25 18% 20%;
+
+    --muted: 32 20% 94%;
+    --muted-foreground: 25 10% 40%; /* #6B635D — 5.6:1, safe for helper text */
+
+    --accent: 12 40% 90%; /* soft blush for hover fills */
+    --accent-foreground: 18 32% 28%;
+
+    --destructive: 0 62% 42%; /* #AB2E2E — 5.9:1 on white */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 42% 28%; /* #296550 — 6.4:1 with white text */
+    --success-foreground: 0 0% 100%;
+
+    --warning: 35 78% 32%; /* dark amber, 5.4:1 on white */
+    --warning-foreground: 0 0% 100%;
+
+    --border: 30 16% 87%;
+    --input: 30 16% 84%;
+    --ring: 18 32% 38%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 25 14% 10%;
+    --foreground: 35 20% 94%;
+
+    --card: 25 14% 13%;
+    --card-foreground: 35 20% 94%;
+
+    --popover: 25 14% 13%;
+    --popover-foreground: 35 20% 94%;
+
+    /* Lightened so it carries dark text at AA on a dark ground */
+    --primary: 20 40% 70%;
+    --primary-foreground: 25 20% 12%;
+
+    --secondary: 25 10% 20%;
+    --secondary-foreground: 35 20% 94%;
+
+    --muted: 25 10% 18%;
+    --muted-foreground: 32 12% 68%; /* 6.1:1 on --background */
+
+    --accent: 20 20% 24%;
+    --accent-foreground: 35 20% 94%;
+
+    --destructive: 0 65% 62%;
+    --destructive-foreground: 25 20% 12%;
+
+    --success: 152 40% 58%;
+    --success-foreground: 25 20% 12%;
+
+    --warning: 38 80% 62%;
+    --warning-foreground: 25 20% 12%;
+
+    --border: 25 10% 24%;
+    --input: 25 10% 26%;
+    --ring: 20 40% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    /* Keeps a sticky header from covering the target of an in-page anchor. */
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * A single, unmissable focus ring for every interactive element.
+   * `:focus-visible` rather than `:focus` so a mouse click does not leave a
+   * ring behind, while keyboard users always get one.
+   */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-serif;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Respect a reduced-motion preference everywhere, including Tailwind's animations. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /**
+   * Skip link: visually hidden until focused, then pinned to the top-left.
+   * The first thing a keyboard or screen-reader user reaches on every page.
+   */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100]
+           focus:rounded-md focus:bg-primary focus:px-4 focus:py-2
+           focus:text-primary-foreground focus:shadow-lg;
+  }
+
+  /* Shimmer used by every skeleton loader. */
+  .skeleton {
+    @apply relative overflow-hidden bg-muted;
+  }
+
+  .skeleton::after {
+    @apply absolute inset-0 -translate-x-full;
+    content: '';
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--background) / 0.6),
+      transparent
+    );
+    animation: shimmer 1.6s infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton::after {
+      animation: none;
+    }
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+}
+
+@layer utilities {
+  /* Clamp helpers for product titles and review bodies. */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /*
+   * Wide content (tables, measurement grids) scrolls inside its own container
+   * so the page body never scrolls horizontally on a phone.
+   */
+  .scroll-x {
+    @apply -mx-4 overflow-x-auto px-4;
+    scrollbar-width: thin;
+  }
+}
