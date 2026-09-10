@@ -85,7 +85,17 @@ export function SelectField({
           aria-describedby={describedBy}
           aria-required={required || undefined}
         >
-          <SelectValue placeholder={placeholder} />
+          {/*
+            The label is resolved here rather than left to SelectValue.
+            SelectValue infers its text from the matching SelectItem, but those
+            live in a portalled SelectContent that is not mounted during SSR —
+            so a select with a value and no placeholder rendered completely
+            blank until the user opened it. Deriving it from the controlled
+            `value` makes the trigger correct on the server and on every update.
+          */}
+          <SelectValue placeholder={placeholder}>
+            {normalised.find((option) => option.value === value)?.label ?? placeholder}
+          </SelectValue>
         </SelectTrigger>
 
         <SelectContent>

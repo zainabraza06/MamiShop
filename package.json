@@ -28,7 +28,8 @@
     "load:smoke": "k6 run loadtest/smoke.js",
     "load:browse": "k6 run loadtest/browse.js",
     "prepare": "node -e \"process.exit(0)\"",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "gen:images": "tsx scripts/generate-placeholder-images.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

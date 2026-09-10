@@ -352,7 +352,8 @@ function AbayaFigure({ activeRef }: { activeRef?: string | null }) {
           className={line(on('hips'))}
           strokeDasharray="2 1.5"
         />
-        <text x="97" y="81" textAnchor="start" className={label(on('hips'))}>
+        {/* Dropped clear of the cuff label, which sits at the same x and y=80. */}
+        <text x="97" y="92" textAnchor="start" className={label(on('hips'))}>
           hips
         </text>
       </g>
@@ -423,7 +424,13 @@ export function MeasurementDiagram({ template, activeRef, className }: DiagramPr
 
   return (
     <svg
-      viewBox="0 0 140 160"
+      /*
+       * Extended left and right beyond the 0–140 figure area. Several labels
+       * are anchored at the ends of their leader lines (`text-anchor="end"` at
+       * x=14), so with a 0-origin viewBox the word ran off the left edge and
+       * "length" rendered as "ngth".
+       */
+      viewBox="-30 -4 200 172"
       role="presentation"
       aria-hidden="true"
       focusable="false"
