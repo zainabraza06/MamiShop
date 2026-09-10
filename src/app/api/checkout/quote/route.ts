@@ -19,9 +19,7 @@ const quoteSchema = z.object({
   city: z.string().trim().max(60).default(''),
   shippingRateId: z.string().max(64).nullish(),
   couponCode: z.string().trim().max(32).nullish(),
-  paymentMethod: z
-    .enum(['STRIPE', 'JAZZCASH', 'EASYPAISA', 'COD', 'BANK_TRANSFER'])
-    .default('COD'),
+  paymentMethod: z.enum(['STRIPE', 'JAZZCASH', 'EASYPAISA', 'COD', 'BANK_TRANSFER']).default('COD'),
   loyaltyPoints: z.coerce.number().int().min(0).default(0),
 });
 

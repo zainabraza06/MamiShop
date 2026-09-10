@@ -20,6 +20,12 @@ import { cn } from '@/lib/utils';
  *
  * The child is cloned rather than rendered through a render-prop so callers
  * can write the natural `<FormField><Input /></FormField>`.
+ *
+ * That cloning has one sharp edge, which cost us a real accessibility bug: the
+ * child MUST be the form control itself. Wrapping the control in a positioning
+ * div puts the `id` on the div, so `<label for>` points at something
+ * unfocusable and the control is left with no accessible name — and nothing
+ * fails loudly. The dev-only check below now catches it.
  */
 export interface FormFieldProps {
   label: string;
@@ -52,16 +58,32 @@ export function FormField({
   const describedBy =
     [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined;
 
-  const control = React.cloneElement(
-    children as React.ReactElement<Record<string, unknown>>,
-    {
-      id: fieldId,
-      'aria-describedby': describedBy,
-      'aria-invalid': error ? true : undefined,
-      'aria-required': required || undefined,
-      hasError: Boolean(error),
-    },
-  );
+  /**
+   * Guards against the wrapper mistake described above.
+   *
+   * A plain host element like `div` or `span` as the direct child means the id
+   * is about to land somewhere a `<label for>` cannot usefully point. Warned
+   * in development only: this is a developer error, and shouting in a
+   * customer's console helps nobody.
+   */
+  if (process.env.NODE_ENV !== 'production') {
+    const childType = (children as React.ReactElement).type;
+    if (typeof childType === 'string' && !['input', 'select', 'textarea'].includes(childType)) {
+      console.warn(
+        `FormField("${label}") received a <${childType}> as its child. The id and ` +
+          'aria-describedby will be applied to that element rather than the form ' +
+          'control, leaving the control unlabelled. Pass the control directly.',
+      );
+    }
+  }
+
+  const control = React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+    id: fieldId,
+    'aria-describedby': describedBy,
+    'aria-invalid': error ? true : undefined,
+    'aria-required': required || undefined,
+    hasError: Boolean(error),
+  });
 
   return (
     <div className={cn('space-y-2', className)}>

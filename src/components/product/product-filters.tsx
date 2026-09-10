@@ -6,13 +6,7 @@ import { SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
 import type { CategoryNode } from '@/server/catalogue';
 import type { ProductFilter } from '@/lib/validation';
@@ -115,23 +109,20 @@ export function ProductFilters({
         className={cn('space-y-6', !open && 'hidden lg:block')}
       >
         {/* Sort */}
-        <FormField label="Sort by" id="filter-sort">
-          <Select
-            value={current.sort}
-            onValueChange={(value) => pushWith((p) => p.set('sort', value))}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Newest first</SelectItem>
-              <SelectItem value="popular">Most popular</SelectItem>
-              <SelectItem value="rating">Best rated</SelectItem>
-              <SelectItem value="price-asc">Price: low to high</SelectItem>
-              <SelectItem value="price-desc">Price: high to low</SelectItem>
-            </SelectContent>
-          </Select>
-        </FormField>
+        {/* SelectField rather than FormField — see the note in select-field.tsx. */}
+        <SelectField
+          label="Sort by"
+          id="filter-sort"
+          value={current.sort}
+          onValueChange={(value) => pushWith((p) => p.set('sort', value))}
+          options={[
+            { value: 'newest', label: 'Newest first' },
+            { value: 'popular', label: 'Most popular' },
+            { value: 'rating', label: 'Best rated' },
+            { value: 'price-asc', label: 'Price: low to high' },
+            { value: 'price-desc', label: 'Price: high to low' },
+          ]}
+        />
 
         {/* Categories */}
         <fieldset>

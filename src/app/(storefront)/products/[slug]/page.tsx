@@ -22,13 +22,17 @@ import type { MeasurementTemplateKey } from '@/lib/measurements';
 /**
  * Product detail page.
  *
- * Incrementally static: prebuilt for the best-selling products at deploy time,
- * generated on first request for the rest, and revalidated hourly. This is the
- * highest-traffic page type on the site, and its content changes at the pace
- * an admin edits it, not per visitor.
+ * Incrementally static: prebuilt for the best sellers at deploy time,
+ * generated on first request for the rest, revalidated hourly.
+ * `dynamicParams` stays true so a newly added product is reachable without a
+ * deploy.
  *
- * `dynamicParams` stays true so a newly added product is reachable immediately
- * rather than 404ing until the next deploy.
+ * Note the Suspense boundary above this route. A `loading.tsx` placed at
+ * `products/` rather than inside the listing's `(list)` route group wraps this
+ * page too. Because this page suspends on its database query, Next then
+ * flushes 200 response headers before reaching `notFound()`, and every dead
+ * product URL answers 200 with 404 content - a soft 404 that search engines
+ * index as a real page. See the comment in products/(list)/loading.tsx.
  */
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -46,7 +50,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const product = await getProductBySlug(slug);
 
-  if (!product) return { title: 'Product not found' };
+  if (!product) notFound();
 
   const description =
     product.metaDescription ??
@@ -69,11 +73,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function ProductPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
 

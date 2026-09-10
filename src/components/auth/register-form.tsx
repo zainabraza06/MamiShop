@@ -108,9 +108,7 @@ export function RegisterForm() {
       toast.success('Check your email to finish setting up your account.');
       router.push('/login');
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'We could not create your account.',
-      );
+      toast.error(error instanceof Error ? error.message : 'We could not create your account.');
     } finally {
       setIsPending(false);
     }
@@ -143,11 +141,7 @@ export function RegisterForm() {
         />
       </FormField>
 
-      <FormField
-        label="Mobile number (optional)"
-        id="phone"
-        hint="For delivery updates by SMS."
-      >
+      <FormField label="Mobile number (optional)" id="phone" hint="For delivery updates by SMS.">
         <Input
           type="tel"
           autoComplete="tel"

@@ -58,7 +58,15 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Shoulder */}
       <g>
-        <line x1="43" y1="31" x2="77" y2="31" strokeWidth="1.2" className={line(on('shoulder'))} strokeDasharray="2 1.5" />
+        <line
+          x1="43"
+          y1="31"
+          x2="77"
+          y2="31"
+          strokeWidth="1.2"
+          className={line(on('shoulder'))}
+          strokeDasharray="2 1.5"
+        />
         <text x="60" y="27" textAnchor="middle" className={label(on('shoulder'))}>
           shoulder
         </text>
@@ -66,7 +74,16 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Bust / chest */}
       <g>
-        <ellipse cx="60" cy="46" rx="19" ry="4.5" fill="none" strokeWidth="1.2" className={line(on('bust'))} strokeDasharray="2 1.5" />
+        <ellipse
+          cx="60"
+          cy="46"
+          rx="19"
+          ry="4.5"
+          fill="none"
+          strokeWidth="1.2"
+          className={line(on('bust'))}
+          strokeDasharray="2 1.5"
+        />
         <text x="94" y="47" textAnchor="start" className={label(on('bust'))}>
           bust
         </text>
@@ -74,7 +91,16 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Waist */}
       <g>
-        <ellipse cx="60" cy="66" rx="15" ry="4" fill="none" strokeWidth="1.2" className={line(on('waist'))} strokeDasharray="2 1.5" />
+        <ellipse
+          cx="60"
+          cy="66"
+          rx="15"
+          ry="4"
+          fill="none"
+          strokeWidth="1.2"
+          className={line(on('waist'))}
+          strokeDasharray="2 1.5"
+        />
         <text x="94" y="67" textAnchor="start" className={label(on('waist'))}>
           waist
         </text>
@@ -82,7 +108,16 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Hips */}
       <g>
-        <ellipse cx="60" cy="88" rx="17" ry="4.5" fill="none" strokeWidth="1.2" className={line(on('hips'))} strokeDasharray="2 1.5" />
+        <ellipse
+          cx="60"
+          cy="88"
+          rx="17"
+          ry="4.5"
+          fill="none"
+          strokeWidth="1.2"
+          className={line(on('hips'))}
+          strokeDasharray="2 1.5"
+        />
         <text x="94" y="89" textAnchor="start" className={label(on('hips'))}>
           hips
         </text>
@@ -90,7 +125,16 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Armhole */}
       <g>
-        <ellipse cx="40" cy="42" rx="6" ry="8" fill="none" strokeWidth="1.2" className={line(on('armhole'))} strokeDasharray="2 1.5" />
+        <ellipse
+          cx="40"
+          cy="42"
+          rx="6"
+          ry="8"
+          fill="none"
+          strokeWidth="1.2"
+          className={line(on('armhole'))}
+          strokeDasharray="2 1.5"
+        />
         <text x="14" y="38" textAnchor="start" className={label(on('armhole'))}>
           armhole
         </text>
@@ -98,9 +142,30 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Shirt length */}
       <g>
-        <line x1="24" y1="30" x2="24" y2="97" strokeWidth="1.2" className={line(on('shirt-length'))} />
-        <line x1="21" y1="30" x2="27" y2="30" strokeWidth="1.2" className={line(on('shirt-length'))} />
-        <line x1="21" y1="97" x2="27" y2="97" strokeWidth="1.2" className={line(on('shirt-length'))} />
+        <line
+          x1="24"
+          y1="30"
+          x2="24"
+          y2="97"
+          strokeWidth="1.2"
+          className={line(on('shirt-length'))}
+        />
+        <line
+          x1="21"
+          y1="30"
+          x2="27"
+          y2="30"
+          strokeWidth="1.2"
+          className={line(on('shirt-length'))}
+        />
+        <line
+          x1="21"
+          y1="97"
+          x2="27"
+          y2="97"
+          strokeWidth="1.2"
+          className={line(on('shirt-length'))}
+        />
         <text x="20" y="66" textAnchor="end" className={label(on('shirt-length'))}>
           shirt
         </text>
@@ -108,7 +173,14 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Sleeve length */}
       <g>
-        <line x1="88" y1="34" x2="92" y2="67" strokeWidth="1.2" className={line(on('sleeve-length'))} />
+        <line
+          x1="88"
+          y1="34"
+          x2="92"
+          y2="67"
+          strokeWidth="1.2"
+          className={line(on('sleeve-length'))}
+        />
         <text x="96" y="30" textAnchor="start" className={label(on('sleeve-length'))}>
           sleeve
         </text>
@@ -116,7 +188,14 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Sleeve opening */}
       <g>
-        <line x1="84" y1="68" x2="90" y2="66" strokeWidth="1.6" className={line(on('sleeve-opening'))} />
+        <line
+          x1="84"
+          y1="68"
+          x2="90"
+          y2="66"
+          strokeWidth="1.6"
+          className={line(on('sleeve-opening'))}
+        />
         <text x="96" y="72" textAnchor="start" className={label(on('sleeve-opening'))}>
           cuff
         </text>
@@ -124,7 +203,12 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Neck depths */}
       <g>
-        <path d="M53 30 Q60 40 67 30" fill="none" strokeWidth="1.2" className={line(on('neck-front'))} />
+        <path
+          d="M53 30 Q60 40 67 30"
+          fill="none"
+          strokeWidth="1.2"
+          className={line(on('neck-front'))}
+        />
         <text x="60" y="46" textAnchor="middle" className={label(on('neck-front'))}>
           neck
         </text>
@@ -132,9 +216,30 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Trouser length */}
       <g>
-        <line x1="100" y1="96" x2="100" y2="148" strokeWidth="1.2" className={line(on('trouser-length'))} />
-        <line x1="97" y1="96" x2="103" y2="96" strokeWidth="1.2" className={line(on('trouser-length'))} />
-        <line x1="97" y1="148" x2="103" y2="148" strokeWidth="1.2" className={line(on('trouser-length'))} />
+        <line
+          x1="100"
+          y1="96"
+          x2="100"
+          y2="148"
+          strokeWidth="1.2"
+          className={line(on('trouser-length'))}
+        />
+        <line
+          x1="97"
+          y1="96"
+          x2="103"
+          y2="96"
+          strokeWidth="1.2"
+          className={line(on('trouser-length'))}
+        />
+        <line
+          x1="97"
+          y1="148"
+          x2="103"
+          y2="148"
+          strokeWidth="1.2"
+          className={line(on('trouser-length'))}
+        />
         <text x="105" y="124" textAnchor="start" className={label(on('trouser-length'))}>
           trouser
         </text>
@@ -142,7 +247,16 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Trouser waist */}
       <g>
-        <ellipse cx="60" cy="97" rx="14" ry="3.5" fill="none" strokeWidth="1.2" className={line(on('trouser-waist'))} strokeDasharray="2 1.5" />
+        <ellipse
+          cx="60"
+          cy="97"
+          rx="14"
+          ry="3.5"
+          fill="none"
+          strokeWidth="1.2"
+          className={line(on('trouser-waist'))}
+          strokeDasharray="2 1.5"
+        />
         <text x="24" y="100" textAnchor="end" className={label(on('trouser-waist'))}>
           t. waist
         </text>
@@ -150,7 +264,16 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Thigh */}
       <g>
-        <ellipse cx="53" cy="112" rx="7" ry="3" fill="none" strokeWidth="1.2" className={line(on('thigh'))} strokeDasharray="2 1.5" />
+        <ellipse
+          cx="53"
+          cy="112"
+          rx="7"
+          ry="3"
+          fill="none"
+          strokeWidth="1.2"
+          className={line(on('thigh'))}
+          strokeDasharray="2 1.5"
+        />
         <text x="24" y="115" textAnchor="end" className={label(on('thigh'))}>
           thigh
         </text>
@@ -158,7 +281,14 @@ function BodyFigure({ activeRef }: { activeRef?: string | null }) {
 
       {/* Bottom opening */}
       <g>
-        <line x1="47" y1="148" x2="55" y2="148" strokeWidth="1.8" className={line(on('bottom-opening'))} />
+        <line
+          x1="47"
+          y1="148"
+          x2="55"
+          y2="148"
+          strokeWidth="1.8"
+          className={line(on('bottom-opening'))}
+        />
         <text x="24" y="150" textAnchor="end" className={label(on('bottom-opening'))}>
           hem
         </text>
@@ -181,44 +311,105 @@ function AbayaFigure({ activeRef }: { activeRef?: string | null }) {
       </g>
 
       <g>
-        <line x1="42" y1="31" x2="78" y2="31" strokeWidth="1.2" className={line(on('shoulder'))} strokeDasharray="2 1.5" />
+        <line
+          x1="42"
+          y1="31"
+          x2="78"
+          y2="31"
+          strokeWidth="1.2"
+          className={line(on('shoulder'))}
+          strokeDasharray="2 1.5"
+        />
         <text x="60" y="27" textAnchor="middle" className={label(on('shoulder'))}>
           shoulder
         </text>
       </g>
 
       <g>
-        <ellipse cx="60" cy="48" rx="20" ry="4.5" fill="none" strokeWidth="1.2" className={line(on('bust'))} strokeDasharray="2 1.5" />
+        <ellipse
+          cx="60"
+          cy="48"
+          rx="20"
+          ry="4.5"
+          fill="none"
+          strokeWidth="1.2"
+          className={line(on('bust'))}
+          strokeDasharray="2 1.5"
+        />
         <text x="97" y="49" textAnchor="start" className={label(on('bust'))}>
           bust
         </text>
       </g>
 
       <g>
-        <ellipse cx="60" cy="80" rx="24" ry="5" fill="none" strokeWidth="1.2" className={line(on('hips'))} strokeDasharray="2 1.5" />
+        <ellipse
+          cx="60"
+          cy="80"
+          rx="24"
+          ry="5"
+          fill="none"
+          strokeWidth="1.2"
+          className={line(on('hips'))}
+          strokeDasharray="2 1.5"
+        />
         <text x="97" y="81" textAnchor="start" className={label(on('hips'))}>
           hips
         </text>
       </g>
 
       <g>
-        <line x1="18" y1="30" x2="18" y2="150" strokeWidth="1.2" className={line(on('abaya-length'))} />
-        <line x1="15" y1="30" x2="21" y2="30" strokeWidth="1.2" className={line(on('abaya-length'))} />
-        <line x1="15" y1="150" x2="21" y2="150" strokeWidth="1.2" className={line(on('abaya-length'))} />
+        <line
+          x1="18"
+          y1="30"
+          x2="18"
+          y2="150"
+          strokeWidth="1.2"
+          className={line(on('abaya-length'))}
+        />
+        <line
+          x1="15"
+          y1="30"
+          x2="21"
+          y2="30"
+          strokeWidth="1.2"
+          className={line(on('abaya-length'))}
+        />
+        <line
+          x1="15"
+          y1="150"
+          x2="21"
+          y2="150"
+          strokeWidth="1.2"
+          className={line(on('abaya-length'))}
+        />
         <text x="14" y="92" textAnchor="end" className={label(on('abaya-length'))}>
           length
         </text>
       </g>
 
       <g>
-        <line x1="92" y1="36" x2="96" y2="75" strokeWidth="1.2" className={line(on('sleeve-length'))} />
+        <line
+          x1="92"
+          y1="36"
+          x2="96"
+          y2="75"
+          strokeWidth="1.2"
+          className={line(on('sleeve-length'))}
+        />
         <text x="99" y="32" textAnchor="start" className={label(on('sleeve-length'))}>
           sleeve
         </text>
       </g>
 
       <g>
-        <line x1="86" y1="76" x2="94" y2="74" strokeWidth="1.6" className={line(on('sleeve-opening'))} />
+        <line
+          x1="86"
+          y1="76"
+          x2="94"
+          y2="74"
+          strokeWidth="1.6"
+          className={line(on('sleeve-opening'))}
+        />
         <text x="99" y="80" textAnchor="start" className={label(on('sleeve-opening'))}>
           cuff
         </text>

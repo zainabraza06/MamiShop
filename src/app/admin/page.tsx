@@ -1,13 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  AlertTriangle,
-  ArrowRight,
-  Package,
-  ShoppingCart,
-  TrendingUp,
-  Users,
-} from 'lucide-react';
+import { AlertTriangle, ArrowRight, Package, ShoppingCart, TrendingUp, Users } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import type { Prisma } from '@prisma/client';
 import { requirePermission } from '@/server/session';
@@ -226,7 +219,7 @@ export default async function AdminDashboardPage() {
                         <td className="py-2.5">
                           <Link
                             href={`/admin/orders/${order.id}`}
-                            className="font-medium hover:underline underline-offset-4"
+                            className="font-medium underline-offset-4 hover:underline"
                           >
                             {order.orderNumber}
                           </Link>
@@ -321,7 +314,11 @@ function MetricCard({
           <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
         </div>
         <p className="mt-2 font-serif text-2xl font-semibold tabular-nums">{value}</p>
-        <p className={tone === 'warning' ? 'mt-1 text-xs text-warning' : 'mt-1 text-xs text-muted-foreground'}>
+        <p
+          className={
+            tone === 'warning' ? 'mt-1 text-xs text-warning' : 'mt-1 text-xs text-muted-foreground'
+          }
+        >
           {hint}
         </p>
       </CardContent>
@@ -329,7 +326,10 @@ function MetricCard({
   );
 
   return href ? (
-    <Link href={href} className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link
+      href={href}
+      className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       {body}
     </Link>
   ) : (

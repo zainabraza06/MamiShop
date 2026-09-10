@@ -27,8 +27,8 @@ export default function GlobalError({
     <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
       <h1 className="text-display font-semibold">Something went wrong</h1>
       <p className="mt-2 max-w-md text-muted-foreground">
-        We hit an unexpected problem. Trying again often works — if it does not, please contact
-        us and quote the reference below.
+        We hit an unexpected problem. Trying again often works — if it does not, please contact us
+        and quote the reference below.
       </p>
 
       <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -36,6 +36,14 @@ export default function GlobalError({
           Try again
         </Button>
         <Button size="lg" variant="outline" asChild>
+          {/*
+            A plain anchor rather than next/link, deliberately. This boundary
+            catches errors that may have left the client router in a bad state;
+            a soft navigation would reuse it. A full document load throws away
+            the broken state entirely, which is the whole point of the escape
+            hatch.
+          */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/">Go home</a>
         </Button>
       </div>

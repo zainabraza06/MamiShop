@@ -10,13 +10,7 @@ import { Input, Textarea } from '@/components/ui/input';
 import { FormField, FormErrorSummary } from '@/components/ui/form-field';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SelectField } from '@/components/ui/select-field';
 import { formatMoney, type Currency } from '@/lib/money';
 import { addBusinessDays, formatDate, cn } from '@/lib/utils';
 import { PAKISTAN_PROVINCES } from '@/lib/regions';
@@ -225,17 +219,16 @@ export function CheckoutForm({
 
   function validate(): { field: string; message: string }[] {
     const found: { field: string; message: string }[] = [];
-    if (!email.includes('@')) found.push({ field: 'email', message: 'Enter a valid email address.' });
+    if (!email.includes('@'))
+      found.push({ field: 'email', message: 'Enter a valid email address.' });
     if (!/^0?3\d{9}$/.test(phone.replace(/\D/g, '').replace(/^92/, '0')))
       found.push({ field: 'phone', message: 'Enter a valid Pakistani mobile number.' });
     if (fullName.trim().length < 2)
       found.push({ field: 'fullName', message: 'Enter the recipient name.' });
-    if (line1.trim().length < 5)
-      found.push({ field: 'line1', message: 'Enter a street address.' });
+    if (line1.trim().length < 5) found.push({ field: 'line1', message: 'Enter a street address.' });
     if (city.trim().length < 2) found.push({ field: 'city', message: 'Enter a city.' });
     if (!state) found.push({ field: 'state', message: 'Select a province.' });
-    if (!shippingRateId)
-      found.push({ field: 'shipping', message: 'Choose a delivery option.' });
+    if (!shippingRateId) found.push({ field: 'shipping', message: 'Choose a delivery option.' });
     if (createAccount && password.length < 10)
       found.push({ field: 'password', message: 'Use at least 10 characters for your password.' });
     if (!acceptTerms)
@@ -433,25 +426,21 @@ export function CheckoutForm({
               />
             </FormField>
 
-            <FormField
+            {/*
+              SelectField, not FormField: FormField attaches its id by cloning
+              its child, and Radix's Select root renders no DOM element, so the
+              id would silently vanish and leave the combobox unlabelled.
+            */}
+            <SelectField
               label="Province"
               id="state"
               required
+              value={state}
+              onValueChange={setState}
+              placeholder="Select a province"
+              options={PAKISTAN_PROVINCES}
               error={errors.find((e) => e.field === 'state')?.message}
-            >
-              <Select value={state} onValueChange={setState}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a province" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAKISTAN_PROVINCES.map((province) => (
-                    <SelectItem key={province} value={province}>
-                      {province}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
+            />
 
             <FormField label="Postal code (optional)" id="postalCode">
               <Input
@@ -498,7 +487,9 @@ export function CheckoutForm({
                     key={rate.id}
                     className={cn(
                       'flex cursor-pointer items-start gap-3 rounded-md border p-4 transition-colors',
-                      shippingRateId === rate.id ? 'border-primary bg-accent' : 'hover:bg-accent/50',
+                      shippingRateId === rate.id
+                        ? 'border-primary bg-accent'
+                        : 'hover:bg-accent/50',
                     )}
                   >
                     <input
@@ -643,7 +634,13 @@ export function CheckoutForm({
               <li key={line.id} className="flex gap-3">
                 <div className="relative size-14 shrink-0 overflow-hidden rounded bg-muted">
                   {line.imageUrl && (
-                    <Image src={line.imageUrl} alt={line.imageAlt} fill sizes="56px" className="object-cover" />
+                    <Image
+                      src={line.imageUrl}
+                      alt={line.imageAlt}
+                      fill
+                      sizes="56px"
+                      className="object-cover"
+                    />
                   )}
                   <span className="absolute -end-1 -top-1 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
                     {line.quantity}
@@ -651,9 +648,7 @@ export function CheckoutForm({
                 </div>
                 <div className="min-w-0 flex-1 text-sm">
                   <p className="truncate font-medium">{line.productName}</p>
-                  {line.variantName && (
-                    <p className="text-muted-foreground">{line.variantName}</p>
-                  )}
+                  {line.variantName && <p className="text-muted-foreground">{line.variantName}</p>}
                 </div>
                 <p className="text-sm font-medium">
                   {formatMoney(line.unitPrice * line.quantity, currency)}
@@ -719,17 +714,19 @@ export function CheckoutForm({
           <Separator className="my-4" />
 
           <dl aria-busy={isQuoting} className="space-y-2 text-sm">
-            {(pricing?.breakdown ?? [{ label: 'Subtotal', amount: subtotal, kind: 'charge' as const }]).map(
-              (row) => (
-                <div key={row.label} className="flex justify-between">
-                  <dt className="text-muted-foreground">{row.label}</dt>
-                  <dd className={cn(row.kind === 'credit' && 'text-success')}>
-                    {row.kind === 'credit' && row.amount > 0 ? '−' : ''}
-                    {formatMoney(row.amount, currency)}
-                  </dd>
-                </div>
-              ),
-            )}
+            {(
+              pricing?.breakdown ?? [
+                { label: 'Subtotal', amount: subtotal, kind: 'charge' as const },
+              ]
+            ).map((row) => (
+              <div key={row.label} className="flex justify-between">
+                <dt className="text-muted-foreground">{row.label}</dt>
+                <dd className={cn(row.kind === 'credit' && 'text-success')}>
+                  {row.kind === 'credit' && row.amount > 0 ? '−' : ''}
+                  {formatMoney(row.amount, currency)}
+                </dd>
+              </div>
+            ))}
           </dl>
 
           <Separator className="my-4" />

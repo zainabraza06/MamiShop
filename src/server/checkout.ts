@@ -119,7 +119,11 @@ export async function quoteOrder(
       ? await Promise.all([
           record
             ? prisma.order.count({
-                where: { userId: options.userId, couponId: record.id, status: { not: 'CANCELLED' } },
+                where: {
+                  userId: options.userId,
+                  couponId: record.id,
+                  status: { not: 'CANCELLED' },
+                },
               })
             : Promise.resolve(0),
           prisma.order.count({
@@ -158,9 +162,7 @@ export async function quoteOrder(
   const taxRules = resolveTaxRules(await getTaxRules(), options.destination);
 
   // Loyalty
-  const loyaltyRedemption = options.loyaltyPoints
-    ? loyaltyPointsToMinor(options.loyaltyPoints)
-    : 0;
+  const loyaltyRedemption = options.loyaltyPoints ? loyaltyPointsToMinor(options.loyaltyPoints) : 0;
 
   const pricing = priceOrder({
     lines,
@@ -446,15 +448,17 @@ export async function placeOrder(ctx: PlaceOrderContext): Promise<PlacedOrder> {
  * Built from the ORDER's frozen snapshot, not the live profile — the whole
  * point of snapshotting is that this stays correct.
  */
-export function buildTailorSheet(items: {
-  productName: string;
-  variantName: string | null;
-  quantity: number;
-  measurementUnit: string | null;
-  measurementSnapshot: unknown;
-  measurementTemplate: string | null;
-  customNote: string | null;
-}[]): string[] {
+export function buildTailorSheet(
+  items: {
+    productName: string;
+    variantName: string | null;
+    quantity: number;
+    measurementUnit: string | null;
+    measurementSnapshot: unknown;
+    measurementTemplate: string | null;
+    customNote: string | null;
+  }[],
+): string[] {
   return items.map((item) => {
     const parts = [`${item.quantity} x ${item.productName}`];
     if (item.variantName) parts.push(`(${item.variantName})`);

@@ -1,4 +1,11 @@
-import { allocate, applyBps, clampNonNegative, percentOf, sumMinor, type Currency } from '@/lib/money';
+import {
+  allocate,
+  applyBps,
+  clampNonNegative,
+  percentOf,
+  sumMinor,
+  type Currency,
+} from '@/lib/money';
 
 /**
  * Order pricing.
@@ -124,12 +131,13 @@ function computeDiscount(
   if (subtotal < coupon.minOrderSubtotal) return { amount: 0, eligibleWeights: zeroWeights };
   if (coupon.type === 'FREE_SHIPPING') return { amount: 0, eligibleWeights: zeroWeights };
 
-  const eligibleWeights = lines.map((line, i) => (couponCoversLine(coupon, line) ? lineTotals[i] : 0));
+  const eligibleWeights = lines.map((line, i) =>
+    couponCoversLine(coupon, line) ? lineTotals[i] : 0,
+  );
   const eligibleTotal = sumMinor(eligibleWeights);
   if (eligibleTotal === 0) return { amount: 0, eligibleWeights: zeroWeights };
 
-  let amount =
-    coupon.type === 'PERCENTAGE' ? percentOf(eligibleTotal, coupon.value) : coupon.value;
+  let amount = coupon.type === 'PERCENTAGE' ? percentOf(eligibleTotal, coupon.value) : coupon.value;
 
   if (coupon.maxDiscount !== null && coupon.maxDiscount !== undefined) {
     amount = Math.min(amount, coupon.maxDiscount);
@@ -197,7 +205,8 @@ export function priceOrder(input: PricingInput): PricingResult {
   if (shipping) {
     const qualifiesByThreshold =
       shipping.freeAbove !== null && discountedSubtotal >= shipping.freeAbove;
-    const qualifiesByCoupon = coupon?.type === 'FREE_SHIPPING' && subtotal >= coupon.minOrderSubtotal;
+    const qualifiesByCoupon =
+      coupon?.type === 'FREE_SHIPPING' && subtotal >= coupon.minOrderSubtotal;
 
     if (qualifiesByThreshold || qualifiesByCoupon) {
       freeShippingApplied = true;

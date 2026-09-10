@@ -24,9 +24,7 @@ export default async function CheckoutPage() {
 
   if (!cart || cart.items.length === 0) redirect('/cart');
 
-  const blocking = validateCartLines(cart).filter(
-    (issue) => issue.reason !== 'QUANTITY_REDUCED',
-  );
+  const blocking = validateCartLines(cart).filter((issue) => issue.reason !== 'QUANTITY_REDUCED');
   if (blocking.length > 0) redirect('/cart');
 
   const user = await getCurrentUser();

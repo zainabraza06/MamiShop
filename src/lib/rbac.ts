@@ -121,17 +121,11 @@ export function hasPermission(principal: Principal | null, permission: Permissio
   return permissionsFor(principal.role, principal.permissions ?? []).has(permission);
 }
 
-export function hasAnyPermission(
-  principal: Principal | null,
-  permissions: Permission[],
-): boolean {
+export function hasAnyPermission(principal: Principal | null, permissions: Permission[]): boolean {
   return permissions.some((p) => hasPermission(principal, p));
 }
 
-export function hasAllPermissions(
-  principal: Principal | null,
-  permissions: Permission[],
-): boolean {
+export function hasAllPermissions(principal: Principal | null, permissions: Permission[]): boolean {
   return permissions.every((p) => hasPermission(principal, p));
 }
 

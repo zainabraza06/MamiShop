@@ -156,9 +156,7 @@ export function MeasurementForm({
 
   if (fields.length === 0) {
     return (
-      <p className={cn('text-sm text-muted-foreground', className)}>
-        {definition.description}
-      </p>
+      <p className={cn('text-sm text-muted-foreground', className)}>{definition.description}</p>
     );
   }
 
@@ -216,8 +214,8 @@ export function MeasurementForm({
             </p>
             <MeasurementDiagram template={template} activeRef={activeRef} className="mx-auto" />
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              Measure over light clothing, standing relaxed. Keep the tape snug but not tight —
-              we add the ease for you.
+              Measure over light clothing, standing relaxed. Keep the tape snug but not tight — we
+              add the ease for you.
             </p>
           </div>
         </aside>
@@ -256,28 +254,26 @@ function MeasurementInput({
       error={error}
       hint={field.help}
     >
-      <div className="relative">
-        <Input
-          // `inputMode="decimal"` gives phones a numeric keypad while still
-          // allowing "36.5"; type="number" would add unwanted spinners and
-          // swallow decimal separators on some Android keyboards.
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          value={draft}
-          placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          className="pe-12"
-        />
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-sm text-muted-foreground"
-        >
-          {suffix}
-        </span>
-      </div>
+      {/*
+        The Input must be FormField's DIRECT child: FormField clones it to attach
+        the id and aria-describedby, so any wrapper here would receive them
+        instead and leave the real input unlabelled. The unit suffix is
+        therefore an Input prop rather than a sibling element.
+      */}
+      <Input
+        // `inputMode="decimal"` gives phones a numeric keypad while still
+        // allowing "36.5"; type="number" would add unwanted spinners and
+        // swallow decimal separators on some Android keyboards.
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        value={draft}
+        placeholder={placeholder}
+        suffix={suffix}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
+        onBlur={onBlur}
+      />
     </FormField>
   );
 }

@@ -76,9 +76,7 @@ export function resolveShippingZone(
 
   if (candidates.length === 0) return null;
 
-  candidates.sort(
-    (a, b) => b.specificity - a.specificity || b.zone.priority - a.zone.priority,
-  );
+  candidates.sort((a, b) => b.specificity - a.specificity || b.zone.priority - a.zone.priority);
 
   return candidates[0].zone;
 }

@@ -1,0 +1,229 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A new push to the same branch cancels the previous run. CI feedback on a
+# commit that has already been replaced is wasted compute and wasted attention.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # Fast feedback: fails in under a minute on a typo or a type error, without
+  # waiting for a database to spin up.
+  quality:
+    name: Lint, format and types
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      # The client must be generated before tsc, or every Prisma type is `any`
+      # and the typecheck silently passes.
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+  test:
+    name: Unit and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        env:
+          AUTH_SECRET: test-secret-value-at-least-32-characters-long
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
+  e2e:
+    name: End-to-end and accessibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: momishop_test
+        ports:
+          - 5432:5432
+        # Without a health check the next step races the container and fails
+        # with a connection error roughly one run in three.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/momishop_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/momishop_test
+      AUTH_SECRET: ci-secret-value-at-least-32-characters-long
+      AUTH_URL: http://localhost:3000
+      AUTH_TRUST_HOST: 'true'
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_NAME: MomiShop
+      NEXT_PUBLIC_DEFAULT_CURRENCY: PKR
+      NEXT_PUBLIC_ENABLE_LOYALTY: 'true'
+      NEXT_PUBLIC_ENABLE_REVIEWS: 'true'
+      NEXT_PUBLIC_ENABLE_GUEST_CHECKOUT: 'true'
+      CRON_SECRET: ci-cron-secret
+      SEED_ADMIN_EMAIL: admin@momishop.pk
+      SEED_ADMIN_PASSWORD: 'ChangeMe!2024'
+      LOG_LEVEL: error
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      # Cached separately from node_modules: browser binaries are ~400MB and
+      # change far less often than dependencies.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed the database
+        run: npm run db:seed
+
+      - name: Build
+        run: npm run build
+
+      - name: Run end-to-end tests
+        run: npx playwright test --project=chromium
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # Verifies the migration history applies cleanly from an empty database and
+  # matches the schema. Catches the case where someone edits schema.prisma but
+  # forgets to generate the migration.
+  migrations:
+    name: Migration integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: migration_check
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_check
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/migration_check
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - name: Apply the full migration history
+        run: npx prisma migrate deploy
+
+      - name: Fail if the schema has drifted from its migrations
+        run: |
+          npx prisma migrate diff \
+            --from-migrations ./prisma/migrations \
+            --to-schema-datamodel ./prisma/schema.prisma \
+            --shadow-database-url "$DATABASE_URL" \
+            --exit-code || {
+              echo "::error::schema.prisma has changes with no corresponding migration."
+              echo "Run: npx prisma migrate dev --name <description>"
+              exit 1
+            }
+
+  security:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      # High and critical fail the build. Moderate and low are reported but do
+      # not block: a transitive moderate advisory in a dev-only tool should not
+      # stop a security fix from shipping.
+      - name: Audit for high and critical advisories
+        run: npm audit --audit-level=high
+
+      - name: Report all advisories
+        if: always()
+        run: npm audit || true

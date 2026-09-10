@@ -134,9 +134,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             where: { id: user.id },
             data: {
               failedLoginCount,
-              lockedUntil: shouldLock
-                ? new Date(Date.now() + LOCKOUT_MINUTES * 60_000)
-                : null,
+              lockedUntil: shouldLock ? new Date(Date.now() + LOCKOUT_MINUTES * 60_000) : null,
             },
           });
 

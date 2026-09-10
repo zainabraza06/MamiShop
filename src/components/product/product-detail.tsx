@@ -10,7 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
-import { MeasurementForm, type MeasurementFormValue } from '@/components/measurements/measurement-form';
+import {
+  MeasurementForm,
+  type MeasurementFormValue,
+} from '@/components/measurements/measurement-form';
 import { formatMoney, type Currency } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import type { MeasurementTemplateKey, MeasurementUnitKey } from '@/lib/measurements';
@@ -165,9 +168,10 @@ export function ProductDetail({
         }),
       });
 
-      const body = (await response.json().catch(() => null)) as
-        | { error?: string; issues?: { message: string }[] }
-        | null;
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+        issues?: { message: string }[];
+      } | null;
 
       if (!response.ok) {
         throw new Error(body?.issues?.[0]?.message ?? body?.error ?? 'Could not add to bag');
@@ -242,13 +246,7 @@ export function ProductDetail({
                     index === activeImage ? 'border-primary' : 'border-transparent',
                   )}
                 >
-                  <Image
-                    src={image.url}
-                    alt=""
-                    fill
-                    sizes="20vw"
-                    className="object-cover"
-                  />
+                  <Image src={image.url} alt="" fill sizes="20vw" className="object-cover" />
                 </button>
               </li>
             ))}
@@ -337,7 +335,7 @@ export function ProductDetail({
                       'inline-flex min-h-11 items-center gap-2 rounded-md border px-3 text-sm transition-colors',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                       selected ? 'border-primary bg-accent' : 'border-input hover:bg-accent',
-                      soldOut && 'cursor-not-allowed opacity-40 line-through',
+                      soldOut && 'cursor-not-allowed line-through opacity-40',
                     )}
                   >
                     {variant.colorHex && (
@@ -467,7 +465,12 @@ export function ProductDetail({
             {isOutOfStock ? 'Sold out' : 'Add to bag'}
           </Button>
 
-          <Button size="icon" variant="outline" onClick={handleWishlist} aria-label="Save to wishlist">
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={handleWishlist}
+            aria-label="Save to wishlist"
+          >
             <Heart aria-hidden="true" />
           </Button>
         </div>

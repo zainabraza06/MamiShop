@@ -44,7 +44,10 @@ export function jsonError(
  * Zod errors are flattened into field-level messages, because a form needs to
  * know *which* input failed, not just that something did.
  */
-export function handleApiError(error: unknown, context: Record<string, unknown> = {}): NextResponse {
+export function handleApiError(
+  error: unknown,
+  context: Record<string, unknown> = {},
+): NextResponse {
   if (error instanceof ZodError) {
     const issues = error.issues.map((issue) => ({
       field: issue.path.join('.') || 'form',

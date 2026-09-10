@@ -422,7 +422,8 @@ export const TEMPLATES: Record<MeasurementTemplateKey, MeasurementTemplate> = {
     key: 'GIRLS_STITCHED',
     label: "Girls' stitched",
     version: 1,
-    description: 'Measurements for girls. Ask her to stand straight with arms relaxed at her sides.',
+    description:
+      'Measurements for girls. Ask her to stand straight with arms relaxed at her sides.',
     groups: childFields('girls'),
   },
   BOYS_STITCHED: {

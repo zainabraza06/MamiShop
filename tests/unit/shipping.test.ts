@@ -97,15 +97,11 @@ describe('resolveShippingZone', () => {
   });
 
   it('returns null for an unserved country', () => {
-    expect(
-      resolveShippingZone(zones, { country: 'FR', state: 'Paris', city: 'Paris' }),
-    ).toBeNull();
+    expect(resolveShippingZone(zones, { country: 'FR', state: 'Paris', city: 'Paris' })).toBeNull();
   });
 
   it('skips inactive zones', () => {
-    const inactive = zones.map((z) =>
-      z.id === 'z-lahore' ? { ...z, isActive: false } : z,
-    );
+    const inactive = zones.map((z) => (z.id === 'z-lahore' ? { ...z, isActive: false } : z));
     const zone = resolveShippingZone(inactive, {
       country: 'PK',
       state: 'Punjab',
@@ -119,9 +115,9 @@ describe('resolveShippingZone', () => {
       { ...zones[0], id: 'a', priority: 1 },
       { ...zones[0], id: 'b', priority: 5 },
     ];
-    expect(
-      resolveShippingZone(tied, { country: 'PK', state: 'Sindh', city: 'Karachi' })?.id,
-    ).toBe('b');
+    expect(resolveShippingZone(tied, { country: 'PK', state: 'Sindh', city: 'Karachi' })?.id).toBe(
+      'b',
+    );
   });
 });
 

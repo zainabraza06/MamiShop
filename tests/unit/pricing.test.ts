@@ -54,9 +54,7 @@ describe('subtotal', () => {
   });
 
   it('multiplies by quantity', () => {
-    const result = priceOrder(
-      base({ lines: [{ ...lines()[0], quantity: 3 }] }),
-    );
+    const result = priceOrder(base({ lines: [{ ...lines()[0], quantity: 3 }] }));
     expect(result.subtotal).toBe(1_500_000);
   });
 
@@ -75,16 +73,12 @@ describe('discounts', () => {
   });
 
   it('caps a percentage coupon at maxDiscount', () => {
-    const result = priceOrder(
-      base({ coupon: percentCoupon({ value: 50, maxDiscount: 100_000 }) }),
-    );
+    const result = priceOrder(base({ coupon: percentCoupon({ value: 50, maxDiscount: 100_000 }) }));
     expect(result.discountTotal).toBe(100_000);
   });
 
   it('ignores a coupon below its minimum subtotal', () => {
-    const result = priceOrder(
-      base({ coupon: percentCoupon({ minOrderSubtotal: 1_000_000 }) }),
-    );
+    const result = priceOrder(base({ coupon: percentCoupon({ minOrderSubtotal: 1_000_000 }) }));
     expect(result.discountTotal).toBe(0);
   });
 

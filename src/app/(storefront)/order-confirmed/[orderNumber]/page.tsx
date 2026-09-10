@@ -102,8 +102,8 @@ export default async function OrderConfirmedPage({
               {formatDate(estimatedFrom)} – {formatDate(estimatedTo)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Made-to-measure pieces are cut and stitched after your order is confirmed, so this
-              is longer than an off-the-shelf delivery.
+              Made-to-measure pieces are cut and stitched after your order is confirmed, so this is
+              longer than an off-the-shelf delivery.
             </p>
           </div>
         </div>

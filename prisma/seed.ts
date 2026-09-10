@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { PrismaClient, type Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';
@@ -304,7 +303,13 @@ const PRODUCTS: SeedProduct[] = [
     tags: ['formal', 'silk', 'occasion'],
     variants: [
       { sku: 'MS-W-0002-MID', name: 'Midnight', colorHex: '#1F2A44', stock: 6 },
-      { sku: 'MS-W-0002-GLD', name: 'Antique gold', colorHex: '#C9A227', priceDelta: PKR(1_500), stock: 4 },
+      {
+        sku: 'MS-W-0002-GLD',
+        name: 'Antique gold',
+        colorHex: '#C9A227',
+        priceDelta: PKR(1_500),
+        stock: 4,
+      },
     ],
   },
   {
@@ -466,8 +471,7 @@ async function seedProducts(categoryIds: Map<string, string>) {
         publishedAt: new Date(Date.now() - index * 86_400_000),
         shortDescription: product.shortDescription,
         description: product.description,
-        careInstructions:
-          'Dry clean recommended for embroidered pieces. Cool iron on the reverse.',
+        careInstructions: 'Dry clean recommended for embroidered pieces. Cool iron on the reverse.',
         fabric: product.fabric,
         pieces: product.pieces,
         tags: product.tags,
@@ -529,8 +533,22 @@ async function seedShippingAndTax() {
       states: [] as string[],
       priority: 10,
       rates: [
-        { name: 'Standard (2-3 days)', amount: PKR(150), freeAbove: PKR(5_000), minDays: 2, maxDays: 3, codSurcharge: PKR(100) },
-        { name: 'Same-day (order before 12pm)', amount: PKR(450), freeAbove: null, minDays: 0, maxDays: 1, codSurcharge: PKR(100) },
+        {
+          name: 'Standard (2-3 days)',
+          amount: PKR(150),
+          freeAbove: PKR(5_000),
+          minDays: 2,
+          maxDays: 3,
+          codSurcharge: PKR(100),
+        },
+        {
+          name: 'Same-day (order before 12pm)',
+          amount: PKR(450),
+          freeAbove: null,
+          minDays: 0,
+          maxDays: 1,
+          codSurcharge: PKR(100),
+        },
       ],
     },
     {
@@ -539,7 +557,14 @@ async function seedShippingAndTax() {
       states: ['Punjab'],
       priority: 5,
       rates: [
-        { name: 'Standard (3-5 days)', amount: PKR(250), freeAbove: PKR(5_000), minDays: 3, maxDays: 5, codSurcharge: PKR(150) },
+        {
+          name: 'Standard (3-5 days)',
+          amount: PKR(250),
+          freeAbove: PKR(5_000),
+          minDays: 3,
+          maxDays: 5,
+          codSurcharge: PKR(150),
+        },
       ],
     },
     {
@@ -548,7 +573,14 @@ async function seedShippingAndTax() {
       states: [] as string[],
       priority: 0,
       rates: [
-        { name: 'Standard (4-7 days)', amount: PKR(350), freeAbove: PKR(7_500), minDays: 4, maxDays: 7, codSurcharge: PKR(200) },
+        {
+          name: 'Standard (4-7 days)',
+          amount: PKR(350),
+          freeAbove: PKR(7_500),
+          minDays: 4,
+          maxDays: 7,
+          codSurcharge: PKR(200),
+        },
       ],
     },
   ];

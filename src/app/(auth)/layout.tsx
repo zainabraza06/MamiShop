@@ -24,13 +24,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </main>
 
       <footer className="container py-6 text-center text-xs text-muted-foreground">
-        <Link href="/pages/privacy-policy" className="hover:underline underline-offset-4">
+        <Link href="/pages/privacy-policy" className="underline-offset-4 hover:underline">
           Privacy
         </Link>
         <span className="mx-2" aria-hidden="true">
           ·
         </span>
-        <Link href="/pages/terms" className="hover:underline underline-offset-4">
+        <Link href="/pages/terms" className="underline-offset-4 hover:underline">
           Terms
         </Link>
       </footer>

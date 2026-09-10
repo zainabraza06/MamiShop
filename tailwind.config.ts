@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import tailwindcssAnimate from 'tailwindcss-animate';
 
 /**
  * MomiShop design system.
@@ -69,7 +70,10 @@ const config: Config = {
         serif: ['var(--font-serif)', 'ui-serif', 'Georgia', 'serif'],
       },
       fontSize: {
-        'display-lg': ['clamp(2.5rem, 5vw, 4rem)', { lineHeight: '1.05', letterSpacing: '-0.02em' }],
+        'display-lg': [
+          'clamp(2.5rem, 5vw, 4rem)',
+          { lineHeight: '1.05', letterSpacing: '-0.02em' },
+        ],
         display: ['clamp(2rem, 4vw, 3rem)', { lineHeight: '1.1', letterSpacing: '-0.015em' }],
       },
       spacing: { '18': '4.5rem', '128': '32rem' },
@@ -99,7 +103,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [tailwindcssAnimate],
 };
 
 export default config;

@@ -137,7 +137,7 @@ export function CartView({
                       <h2 className="font-medium">
                         <Link
                           href={`/products/${line.productSlug}`}
-                          className="hover:underline underline-offset-4"
+                          className="underline-offset-4 hover:underline"
                         >
                           {line.productName}
                         </Link>
@@ -201,9 +201,7 @@ export function CartView({
                       >
                         <Minus aria-hidden="true" />
                       </Button>
-                      <span className="w-9 text-center text-sm font-medium">
-                        {line.quantity}
-                      </span>
+                      <span className="w-9 text-center text-sm font-medium">{line.quantity}</span>
                       <Button
                         variant="ghost"
                         size="icon"

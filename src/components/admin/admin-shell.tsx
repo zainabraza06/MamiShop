@@ -45,9 +45,21 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, section: 'dashboard' },
-  { href: '/admin/orders', label: 'Orders', icon: ShoppingCart, section: 'orders', badgeKey: 'orders' },
+  {
+    href: '/admin/orders',
+    label: 'Orders',
+    icon: ShoppingCart,
+    section: 'orders',
+    badgeKey: 'orders',
+  },
   { href: '/admin/products', label: 'Products', icon: Package, section: 'products' },
-  { href: '/admin/returns', label: 'Returns', icon: RotateCcw, section: 'returns', badgeKey: 'returns' },
+  {
+    href: '/admin/returns',
+    label: 'Returns',
+    icon: RotateCcw,
+    section: 'returns',
+    badgeKey: 'returns',
+  },
   { href: '/admin/customers', label: 'Customers', icon: Users, section: 'customers' },
   { href: '/admin/reviews', label: 'Reviews', icon: Star, section: 'reviews', badgeKey: 'reviews' },
   { href: '/admin/coupons', label: 'Coupons', icon: Tag, section: 'coupons' },
@@ -74,7 +86,10 @@ export function AdminShell({
     setMobileOpen(false);
   }, [pathname]);
 
-  const principal: Principal = { role: user.role as Principal['role'], permissions: user.permissions };
+  const principal: Principal = {
+    role: user.role as Principal['role'],
+    permissions: user.permissions,
+  };
   const visible = NAV.filter((item) => canAccessSection(principal, item.section));
 
   return (

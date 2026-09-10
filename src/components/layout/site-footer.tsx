@@ -19,8 +19,8 @@ export function SiteFooter({ categories }: { categories: CategoryNode[] }) {
           <div>
             <p className="font-serif text-xl font-semibold">MomiShop</p>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              Modest clothing stitched to your own measurements. No standard sizes, no
-              guesswork — just the numbers you give us.
+              Modest clothing stitched to your own measurements. No standard sizes, no guesswork —
+              just the numbers you give us.
             </p>
           </div>
 
@@ -33,14 +33,17 @@ export function SiteFooter({ categories }: { categories: CategoryNode[] }) {
                 <li key={category.id}>
                   <Link
                     href={`/products?category=${category.slug}`}
-                    className="hover:text-foreground hover:underline underline-offset-4"
+                    className="underline-offset-4 hover:text-foreground hover:underline"
                   >
                     {category.name}
                   </Link>
                 </li>
               ))}
               <li>
-                <Link href="/products" className="hover:text-foreground hover:underline underline-offset-4">
+                <Link
+                  href="/products"
+                  className="underline-offset-4 hover:text-foreground hover:underline"
+                >
                   All products
                 </Link>
               </li>
@@ -53,27 +56,42 @@ export function SiteFooter({ categories }: { categories: CategoryNode[] }) {
             </h2>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
-                <Link href="/measuring-guide" className="hover:text-foreground hover:underline underline-offset-4">
+                <Link
+                  href="/measuring-guide"
+                  className="underline-offset-4 hover:text-foreground hover:underline"
+                >
                   How to measure
                 </Link>
               </li>
               <li>
-                <Link href="/track-order" className="hover:text-foreground hover:underline underline-offset-4">
+                <Link
+                  href="/track-order"
+                  className="underline-offset-4 hover:text-foreground hover:underline"
+                >
                   Track your order
                 </Link>
               </li>
               <li>
-                <Link href="/pages/returns-policy" className="hover:text-foreground hover:underline underline-offset-4">
+                <Link
+                  href="/pages/returns-policy"
+                  className="underline-offset-4 hover:text-foreground hover:underline"
+                >
                   Returns &amp; exchanges
                 </Link>
               </li>
               <li>
-                <Link href="/pages/shipping" className="hover:text-foreground hover:underline underline-offset-4">
+                <Link
+                  href="/pages/shipping"
+                  className="underline-offset-4 hover:text-foreground hover:underline"
+                >
                   Delivery
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="hover:text-foreground hover:underline underline-offset-4">
+                <Link
+                  href="/contact"
+                  className="underline-offset-4 hover:text-foreground hover:underline"
+                >
                   Contact us
                 </Link>
               </li>
@@ -94,22 +112,34 @@ export function SiteFooter({ categories }: { categories: CategoryNode[] }) {
           <nav aria-label="Legal">
             <ul className="flex flex-wrap gap-x-5 gap-y-2">
               <li>
-                <Link href="/pages/privacy-policy" className="hover:text-foreground hover:underline underline-offset-4">
+                <Link
+                  href="/pages/privacy-policy"
+                  className="underline-offset-4 hover:text-foreground hover:underline"
+                >
                   Privacy
                 </Link>
               </li>
               <li>
-                <Link href="/pages/terms" className="hover:text-foreground hover:underline underline-offset-4">
+                <Link
+                  href="/pages/terms"
+                  className="underline-offset-4 hover:text-foreground hover:underline"
+                >
                   Terms
                 </Link>
               </li>
               <li>
-                <Link href="/pages/returns-policy" className="hover:text-foreground hover:underline underline-offset-4">
+                <Link
+                  href="/pages/returns-policy"
+                  className="underline-offset-4 hover:text-foreground hover:underline"
+                >
                   Returns
                 </Link>
               </li>
               <li>
-                <Link href="/account/privacy" className="hover:text-foreground hover:underline underline-offset-4">
+                <Link
+                  href="/account/privacy"
+                  className="underline-offset-4 hover:text-foreground hover:underline"
+                >
                   Your data
                 </Link>
               </li>

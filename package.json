@@ -10,7 +10,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,md,json,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json,css}\"",
@@ -27,7 +27,8 @@
     "db:reset": "prisma migrate reset --force",
     "load:smoke": "k6 run loadtest/smoke.js",
     "load:browse": "k6 run loadtest/browse.js",
-    "prepare": "node -e \"process.exit(0)\""
+    "prepare": "node -e \"process.exit(0)\"",
+    "lint:fix": "eslint . --fix"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

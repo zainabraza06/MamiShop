@@ -26,12 +26,7 @@ interface SiteHeaderProps {
   announcement?: string | null;
 }
 
-export function SiteHeader({
-  categories,
-  cartCount,
-  isSignedIn,
-  announcement,
-}: SiteHeaderProps) {
+export function SiteHeader({ categories, cartCount, isSignedIn, announcement }: SiteHeaderProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
@@ -192,9 +187,7 @@ export function SiteHeader({
                     className="flex min-h-11 items-center justify-between rounded-md px-3 text-base font-medium hover:bg-accent"
                   >
                     {category.name}
-                    <span className="text-xs text-muted-foreground">
-                      {category.productCount}
-                    </span>
+                    <span className="text-xs text-muted-foreground">{category.productCount}</span>
                   </Link>
 
                   {category.children.length > 0 && (
@@ -260,7 +253,7 @@ function CategoryMenu({ category, pathname }: { category: CategoryNode; pathname
         {category.name}
       </Link>
 
-      <div className="invisible absolute start-0 top-full z-50 min-w-56 rounded-md border bg-popover p-2 opacity-0 shadow-md transition-[opacity,visibility] group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+      <div className="invisible absolute start-0 top-full z-50 min-w-56 rounded-md border bg-popover p-2 opacity-0 shadow-md transition-[opacity,visibility] group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
         <ul>
           {category.children.map((child) => (
             <li key={child.id}>

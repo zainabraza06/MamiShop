@@ -15,20 +15,24 @@ import { CACHE_KEYS, CACHE_TTL, cached } from '@/lib/cache';
  * header a client component (it owns menu state) without making it fetch.
  */
 async function getAnnouncement(): Promise<string | null> {
-  return cached(`${CACHE_KEYS.homepageContent}:announcement`, CACHE_TTL.homepageContent, async () => {
-    const block = await prisma.contentBlock.findFirst({
-      where: {
-        key: 'ANNOUNCEMENT_BAR',
-        isActive: true,
-        OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }],
-        AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] }],
-      },
-      select: { data: true },
-    });
+  return cached(
+    `${CACHE_KEYS.homepageContent}:announcement`,
+    CACHE_TTL.homepageContent,
+    async () => {
+      const block = await prisma.contentBlock.findFirst({
+        where: {
+          key: 'ANNOUNCEMENT_BAR',
+          isActive: true,
+          OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }],
+          AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] }],
+        },
+        select: { data: true },
+      });
 
-    const data = block?.data as { text?: string } | undefined;
-    return data?.text ?? null;
-  });
+      const data = block?.data as { text?: string } | undefined;
+      return data?.text ?? null;
+    },
+  );
 }
 
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {

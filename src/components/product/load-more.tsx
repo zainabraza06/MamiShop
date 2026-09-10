@@ -73,9 +73,7 @@ export function LoadMore({
       )}
 
       <p aria-live="polite" className="sr-only">
-        {items.length > 0
-          ? `Showing ${initialCount + items.length} products`
-          : ''}
+        {items.length > 0 ? `Showing ${initialCount + items.length} products` : ''}
       </p>
 
       {error && (

@@ -71,10 +71,7 @@ function reject(code: CouponRejectionCode, message: string): CouponEvaluation {
  * Telling an attacker "this code has 3 uses left" turns coupon codes into an
  * enumerable resource.
  */
-export function evaluateCoupon(
-  coupon: CouponRecord | null,
-  ctx: CouponContext,
-): CouponEvaluation {
+export function evaluateCoupon(coupon: CouponRecord | null, ctx: CouponContext): CouponEvaluation {
   if (!coupon) {
     return reject('NOT_FOUND', 'That code is not valid.');
   }
@@ -95,10 +92,7 @@ export function evaluateCoupon(
     return reject('USAGE_LIMIT_REACHED', 'That code is no longer available.');
   }
 
-  if (
-    coupon.usageLimitPerUser !== null &&
-    ctx.userRedemptions >= coupon.usageLimitPerUser
-  ) {
+  if (coupon.usageLimitPerUser !== null && ctx.userRedemptions >= coupon.usageLimitPerUser) {
     return reject('USER_LIMIT_REACHED', 'You have already used this code.');
   }
 
@@ -113,8 +107,7 @@ export function evaluateCoupon(
     );
   }
 
-  const isScoped =
-    coupon.appliesToProductIds.length > 0 || coupon.appliesToCategoryIds.length > 0;
+  const isScoped = coupon.appliesToProductIds.length > 0 || coupon.appliesToCategoryIds.length > 0;
 
   if (isScoped) {
     const matches =
@@ -122,10 +115,7 @@ export function evaluateCoupon(
       coupon.appliesToCategoryIds.some((id) => ctx.categoryIds.includes(id));
 
     if (!matches) {
-      return reject(
-        'NO_ELIGIBLE_ITEMS',
-        'That code does not apply to anything in your basket.',
-      );
+      return reject('NO_ELIGIBLE_ITEMS', 'That code does not apply to anything in your basket.');
     }
   }
 

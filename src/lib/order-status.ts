@@ -160,10 +160,7 @@ export function canTransitionPayment(from: PaymentStatus, to: PaymentStatus): bo
  * Derives the payment status after a refund, so the caller never has to guess
  * whether a refund was partial.
  */
-export function paymentStatusAfterRefund(
-  grandTotal: number,
-  refundedTotal: number,
-): PaymentStatus {
+export function paymentStatusAfterRefund(grandTotal: number, refundedTotal: number): PaymentStatus {
   if (refundedTotal <= 0) return 'PAID';
   return refundedTotal >= grandTotal ? 'REFUNDED' : 'PARTIALLY_REFUNDED';
 }

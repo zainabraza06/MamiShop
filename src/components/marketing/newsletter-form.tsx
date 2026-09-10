@@ -51,9 +51,7 @@ export function NewsletterForm({
       setEmail('');
       toast.success('Thank you — please check your inbox to confirm.');
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'We could not sign you up just now.',
-      );
+      toast.error(error instanceof Error ? error.message : 'We could not sign you up just now.');
     } finally {
       setIsPending(false);
     }

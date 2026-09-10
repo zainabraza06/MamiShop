@@ -37,10 +37,7 @@ export const productCardSelect = {
 
 export type ProductCard = Prisma.ProductGetPayload<{ select: typeof productCardSelect }>;
 
-const SORT_ORDER: Record<
-  ProductFilter['sort'],
-  Prisma.ProductOrderByWithRelationInput[]
-> = {
+const SORT_ORDER: Record<ProductFilter['sort'], Prisma.ProductOrderByWithRelationInput[]> = {
   // Every sort ends with `id` as a tiebreaker. Without it, rows sharing a sort
   // value have no stable order and the cursor can skip or repeat items.
   newest: [{ publishedAt: 'desc' }, { id: 'desc' }],
@@ -138,8 +135,17 @@ export async function listProducts(filter: ProductFilter): Promise<ProductListRe
   };
 }
 
-/** Full product detail. Returns null rather than throwing so the page can 404. */
+/**
+ * Full product detail. Returns null rather than throwing so the page can 404.
+ *
+ * Not separately memoised: the page is ISR-cached for an hour, so an extra
+ * cache layer here would only add a second thing to invalidate.
+ */
 export async function getProductBySlug(slug: string) {
+  return findProductBySlug(slug);
+}
+
+async function findProductBySlug(slug: string) {
   return prisma.product.findFirst({
     where: { slug, status: 'ACTIVE', archivedAt: null },
     include: {

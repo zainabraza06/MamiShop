@@ -115,22 +115,14 @@ describe('validateMeasurements', () => {
   });
 
   it('catches the classic 36 -> 360 typo', () => {
-    const result = validateMeasurements(
-      'WOMENS_STITCHED',
-      { ...validWomens, bust: 360 },
-      'INCH',
-    );
+    const result = validateMeasurements('WOMENS_STITCHED', { ...validWomens, bust: 360 }, 'INCH');
     expect(result.ok).toBe(false);
     expect(result.issues.some((i) => i.field === 'bust')).toBe(true);
   });
 
   it('rejects zero and negative values', () => {
     for (const bad of [0, -5]) {
-      const result = validateMeasurements(
-        'WOMENS_STITCHED',
-        { ...validWomens, bust: bad },
-        'INCH',
-      );
+      const result = validateMeasurements('WOMENS_STITCHED', { ...validWomens, bust: bad }, 'INCH');
       expect(result.ok).toBe(false);
     }
   });
@@ -146,11 +138,7 @@ describe('validateMeasurements', () => {
   });
 
   it('coerces numeric strings from HTML inputs', () => {
-    const result = validateMeasurements(
-      'WOMENS_STITCHED',
-      { ...validWomens, bust: '36' },
-      'INCH',
-    );
+    const result = validateMeasurements('WOMENS_STITCHED', { ...validWomens, bust: '36' }, 'INCH');
     expect(result.ok).toBe(true);
     expect(result.normalised.bust).toBe(36);
   });
@@ -170,21 +158,13 @@ describe('validateMeasurements', () => {
 
     // The same number read as 91 *inches* is not a human bust measurement,
     // which is exactly the mistake the unit toggle is there to prevent.
-    const asInches = validateMeasurements(
-      'WOMENS_STITCHED',
-      { ...validWomens, bust: 91 },
-      'INCH',
-    );
+    const asInches = validateMeasurements('WOMENS_STITCHED', { ...validWomens, bust: 91 }, 'INCH');
     expect(asInches.ok).toBe(false);
     expect(asInches.issues.some((i) => i.field === 'bust')).toBe(true);
   });
 
   it('rounds stored values to one decimal', () => {
-    const result = validateMeasurements(
-      'WOMENS_STITCHED',
-      { ...validWomens, bust: 36.26 },
-      'INCH',
-    );
+    const result = validateMeasurements('WOMENS_STITCHED', { ...validWomens, bust: 36.26 }, 'INCH');
     expect(result.normalised.bust).toBe(36.3);
   });
 

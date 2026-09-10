@@ -52,11 +52,7 @@ export const phoneSchema = z
 
 /** Free text that will be re-displayed: tags and control characters stripped. */
 export const safeText = (max: number, label = 'This field') =>
-  z
-    .string()
-    .trim()
-    .max(max, `${label} cannot exceed ${max} characters.`)
-    .transform(sanitizeText);
+  z.string().trim().max(max, `${label} cannot exceed ${max} characters.`).transform(sanitizeText);
 
 export const slugSchema = z
   .string()
@@ -66,16 +62,14 @@ export const slugSchema = z
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, numbers and hyphens only.');
 
 /** Money entered by an admin, in major units, converted to integer minor units. */
-export const moneyInputSchema = z
-  .union([z.number(), z.string()])
-  .transform((v, ctx) => {
-    const n = typeof v === 'string' ? Number(v.replace(/[,\s]/g, '')) : v;
-    if (!Number.isFinite(n) || n < 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a valid amount.' });
-      return z.NEVER;
-    }
-    return Math.round(n * 100);
-  });
+export const moneyInputSchema = z.union([z.number(), z.string()]).transform((v, ctx) => {
+  const n = typeof v === 'string' ? Number(v.replace(/[,\s]/g, '')) : v;
+  if (!Number.isFinite(n) || n < 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a valid amount.' });
+    return z.NEVER;
+  }
+  return Math.round(n * 100);
+});
 
 export const currencySchema = z.enum(SUPPORTED_CURRENCIES);
 
@@ -282,9 +276,7 @@ export const productFilterSchema = z.object({
   maxPrice: z.coerce.number().int().min(0).optional(),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
   fabric: z.string().trim().max(60).optional(),
-  sort: z
-    .enum(['newest', 'price-asc', 'price-desc', 'rating', 'popular'])
-    .default('newest'),
+  sort: z.enum(['newest', 'price-asc', 'price-desc', 'rating', 'popular']).default('newest'),
   cursor: z.string().max(64).optional(),
   limit: z.coerce.number().int().min(1).max(60).default(24),
 });

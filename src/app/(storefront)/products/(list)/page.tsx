@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Suspense } from 'react';
 import { PackageSearch } from 'lucide-react';
 import { listProducts, getCategoryTree, getCategoryBySlug } from '@/server/catalogue';
@@ -103,7 +104,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
             {category.children.map((child) => (
               <li key={child.id}>
                 <Button variant="outline" size="sm" asChild>
-                  <a href={`/products?category=${child.slug}`}>{child.name}</a>
+                  <Link href={`/products?category=${child.slug}`}>{child.name}</Link>
                 </Button>
               </li>
             ))}
@@ -124,7 +125,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
               description="Try widening your price range, or browse everything we have."
               action={
                 <Button asChild>
-                  <a href="/products">Clear filters</a>
+                  <Link href="/products">Clear filters</Link>
                 </Button>
               }
             />

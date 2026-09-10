@@ -7,13 +7,7 @@ import { cn } from '@/lib/utils';
  * `role="status"` with a visually hidden label announces the wait once.
  * Without the label a screen reader reports nothing at all.
  */
-export function Spinner({
-  className,
-  label = 'Loading',
-}: {
-  className?: string;
-  label?: string;
-}) {
+export function Spinner({ className, label = 'Loading' }: { className?: string; label?: string }) {
   return (
     <span role="status" className="inline-flex items-center">
       <Loader2 className={cn('size-4 animate-spin', className)} aria-hidden="true" />

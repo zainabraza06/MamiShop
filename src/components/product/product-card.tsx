@@ -31,8 +31,7 @@ export function ProductCard({
   const hover = product.images[1];
   const currency = product.currency as Currency;
 
-  const onSale =
-    product.compareAtPrice !== null && product.compareAtPrice > product.basePrice;
+  const onSale = product.compareAtPrice !== null && product.compareAtPrice > product.basePrice;
   const discountPercent = onSale
     ? Math.round(((product.compareAtPrice! - product.basePrice) / product.compareAtPrice!) * 100)
     : 0;

@@ -126,7 +126,11 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
     });
   };
 
-  const rightText = (value: string, right: number, options: { size?: number; font?: typeof regular; color?: typeof ink } = {}) => {
+  const rightText = (
+    value: string,
+    right: number,
+    options: { size?: number; font?: typeof regular; color?: typeof ink } = {},
+  ) => {
     const safe = sanitizeForPdf(value);
     const font = options.font ?? regular;
     const size = options.size ?? 10;
@@ -288,10 +292,10 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   y = margin + 34;
   rule();
   y -= 14;
-  text(
-    'Made-to-measure garments are cut individually and cannot be resold. If the fit is wrong,',
-    { size: 8, color: muted },
-  );
+  text('Made-to-measure garments are cut individually and cannot be resold. If the fit is wrong,', {
+    size: 8,
+    color: muted,
+  });
   y -= 10;
   text('contact us within 7 days of delivery and we will alter or remake the piece.', {
     size: 8,

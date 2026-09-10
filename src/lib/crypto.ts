@@ -64,7 +64,11 @@ export function safeEqual(a: string, b: string): boolean {
  * Same visitor + same experiment always lands in the same bucket, with no
  * server state, so a returning shopper never sees the layout flip.
  */
-export function bucketVariant(visitorId: string, experimentKey: string, variants: string[]): string {
+export function bucketVariant(
+  visitorId: string,
+  experimentKey: string,
+  variants: string[],
+): string {
   if (variants.length === 0) return 'A';
   const digest = createHash('sha256').update(`${experimentKey}:${visitorId}`).digest();
   return variants[digest.readUInt32BE(0) % variants.length];

@@ -88,7 +88,13 @@ describe('revenue accounting', () => {
   });
 
   it('includes every live status', () => {
-    for (const status of ['PENDING', 'CONFIRMED', 'IN_PRODUCTION', 'SHIPPED', 'DELIVERED'] as const) {
+    for (const status of [
+      'PENDING',
+      'CONFIRMED',
+      'IN_PRODUCTION',
+      'SHIPPED',
+      'DELIVERED',
+    ] as const) {
       expect(countsAsRevenue(status)).toBe(true);
     }
   });
