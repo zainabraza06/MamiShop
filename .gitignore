@@ -50,3 +50,6 @@ prisma/*.db-journal
 # uploads / tmp
 /tmp/
 /uploads/
+
+# build output
+dist/

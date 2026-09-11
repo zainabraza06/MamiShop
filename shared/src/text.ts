@@ -153,7 +153,8 @@ export function compact<T extends Record<string, unknown>>(obj: T): Partial<T> {
 }
 
 export function absoluteUrl(path: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  // APP_URL on the API; NEXT_PUBLIC_APP_URL in the storefront, where Next inlines it.
+  const base = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   return `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
 }
 

@@ -15,6 +15,7 @@
     "./pricing": "./src/pricing.ts",
     "./rbac": "./src/rbac.ts",
     "./regions": "./src/regions.ts",
+    "./session-contract": "./src/session-contract.ts",
     "./shipping": "./src/shipping.ts",
     "./text": "./src/text.ts",
     "./validation": "./src/validation.ts"

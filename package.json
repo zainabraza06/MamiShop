@@ -32,7 +32,11 @@
     "gen:images": "tsx scripts/generate-placeholder-images.ts",
     "db:check-drift": "node scripts/check-migration-drift.mjs",
     "test:shared": "npm run test -w @momishop/shared",
-    "typecheck:shared": "npm run typecheck -w @momishop/shared"
+    "typecheck:shared": "npm run typecheck -w @momishop/shared",
+    "dev:api": "npm run dev -w @momishop/backend",
+    "build:api": "npm run build -w @momishop/backend",
+    "test:api": "npm run test -w @momishop/backend",
+    "typecheck:api": "npm run typecheck -w @momishop/backend"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -109,6 +113,7 @@
     "deepmerge-ts": "^8.0.0"
   },
   "workspaces": [
-    "shared"
+    "shared",
+    "backend"
   ]
 }
