@@ -84,7 +84,7 @@
     "stripe": "^18.5.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "twilio": "^5.10.0",
+    "twilio": "^6.1.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
