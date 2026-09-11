@@ -14,7 +14,7 @@ import path from 'node:path';
  *
  * Excluded below are the modules that are infrastructure rather than logic:
  * the Prisma client singleton, the Redis/Upstash adapter, the boot-time env
- * loader, the stdout logger, and a file of constants. Everything else in
+ * loader and the stdout logger. Everything else in
  * `src/lib` must meet the thresholds.
  */
 export default defineConfig({
@@ -33,7 +33,6 @@ export default defineConfig({
         'src/lib/redis.ts',
         'src/lib/env.ts',
         'src/lib/logger.ts',
-        'src/lib/regions.ts',
       ],
       thresholds: { lines: 80, functions: 80, branches: 70, statements: 80 },
     },

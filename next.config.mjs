@@ -49,6 +49,9 @@ const nextConfig = {
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
     ],
   },
+  // The shared workspace package ships TypeScript source rather than a build,
+  // so Next has to compile it alongside the app.
+  transpilePackages: ['@momishop/shared'],
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts'],
   },

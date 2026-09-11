@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalJson, deepEqualIgnoringKeyOrder } from '@/lib/canonical-json';
+import { canonicalJson, deepEqualIgnoringKeyOrder } from '../src/canonical-json';
 
 describe('canonicalJson', () => {
   it('sorts object keys so serialisation depends only on content', () => {

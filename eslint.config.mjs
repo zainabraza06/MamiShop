@@ -19,7 +19,7 @@ const config = [
     ignores: [
       '.next/**',
       'node_modules/**',
-      'coverage/**',
+      '**/coverage/**',
       'playwright-report/**',
       'test-results/**',
       // k6 scripts run in k6's own runtime, not Node, and import from
@@ -49,7 +49,7 @@ const config = [
 
   {
     // Scripts and tests legitimately print to stdout and use loose typing.
-    files: ['prisma/seed.ts', 'tests/**/*.ts', 'scripts/**/*.{ts,mjs}'],
+    files: ['prisma/seed.ts', 'tests/**/*.ts', 'shared/tests/**/*.ts', 'scripts/**/*.{ts,mjs}'],
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'off',

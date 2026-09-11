@@ -1,0 +1,30 @@
+{
+  "name": "@momishop/shared",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pure domain logic and validation schemas shared by the MomiShop backend and frontend.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./canonical-json": "./src/canonical-json.ts",
+    "./coupons": "./src/coupons.ts",
+    "./measurements": "./src/measurements.ts",
+    "./money": "./src/money.ts",
+    "./order-status": "./src/order-status.ts",
+    "./password-strength": "./src/password-strength.ts",
+    "./pricing": "./src/pricing.ts",
+    "./rbac": "./src/rbac.ts",
+    "./regions": "./src/regions.ts",
+    "./shipping": "./src/shipping.ts",
+    "./text": "./src/text.ts",
+    "./validation": "./src/validation.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  }
+}

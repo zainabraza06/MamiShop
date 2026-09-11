@@ -6,7 +6,7 @@ import {
   type PriceableCoupon,
   type PriceableLine,
   type PricingInput,
-} from '@/lib/pricing';
+} from '../src/pricing';
 
 /** Rs 5,000 abaya and Rs 2,000 stole, both taxed at the standard class. */
 function lines(): PriceableLine[] {

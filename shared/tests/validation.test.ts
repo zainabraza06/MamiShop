@@ -12,7 +12,7 @@ import {
   registerSchema,
   reviewSchema,
   slugSchema,
-} from '@/lib/validation';
+} from '../src/validation';
 
 /**
  * Shared validation schemas.

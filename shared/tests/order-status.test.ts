@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { OrderStatus } from '@prisma/client';
+import type { OrderStatus } from '../src/order-status';
 import {
   allowedTransitions,
   canTransition,
@@ -12,7 +12,7 @@ import {
   STATUS_PRESENTATION,
   timelineFor,
   timelineProgress,
-} from '@/lib/order-status';
+} from '../src/order-status';
 
 const ALL_STATUSES: OrderStatus[] = [
   'PENDING',

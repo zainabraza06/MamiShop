@@ -8,7 +8,7 @@ import {
   percentOf,
   sumMinor,
   toMinorUnits,
-} from '@/lib/money';
+} from '../src/money';
 
 describe('minor unit conversion', () => {
   it('converts major to minor units', () => {

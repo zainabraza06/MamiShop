@@ -9,7 +9,7 @@ import {
   TEMPLATES,
   validateMeasurements,
   type MeasurementTemplateKey,
-} from '@/lib/measurements';
+} from '../src/measurements';
 
 /** Every required field on the women's template: shirt group plus trouser group. */
 const validWomens = {

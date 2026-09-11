@@ -40,6 +40,12 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      # Checked again under its own tsconfig, which has no DOM lib: the shared
+      # package is imported by the backend, so a browser API creeping into it
+      # must fail here rather than at runtime on the server.
+      - name: Type check the shared package
+        run: npm run typecheck:shared
+
       - name: Lint
         run: npm run lint
 
@@ -67,12 +73,19 @@ jobs:
           AUTH_SECRET: test-secret-value-at-least-32-characters-long
           DATABASE_URL: postgresql://test:test@localhost:5432/test
 
+      # The shared domain package has its own suite and a higher coverage bar,
+      # since everything in it is pure and cheap to test.
+      - name: Run shared package tests with coverage
+        run: npm run test:coverage -w @momishop/shared
+
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: coverage/
+          path: |
+            coverage/
+            shared/coverage/
           retention-days: 7
 
   e2e:

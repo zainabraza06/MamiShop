@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { UserRole } from '@prisma/client';
+import type { UserRole } from '../src/rbac';
 import {
   PERMISSIONS,
   PERMISSION_LABELS,
@@ -12,7 +12,7 @@ import {
   isStaff,
   permissionsFor,
   type Principal,
-} from '@/lib/rbac';
+} from '../src/rbac';
 
 /**
  * Authorisation rules.

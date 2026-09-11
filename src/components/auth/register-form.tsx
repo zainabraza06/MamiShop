@@ -9,7 +9,9 @@ import { Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormField, FormErrorSummary } from '@/components/ui/form-field';
-import { assessPasswordStrength } from '@/lib/password';
+// Imported from the shared package, not @/lib/password: that module imports
+// bcryptjs, and pulling it in here shipped a hashing library to the browser.
+import { assessPasswordStrength } from '@momishop/shared/password-strength';
 import { cn } from '@/lib/utils';
 
 /**

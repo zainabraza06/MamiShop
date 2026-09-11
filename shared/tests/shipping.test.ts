@@ -7,7 +7,7 @@ import {
   resolveTaxRules,
   type ShippingZoneRecord,
   type TaxRuleRecord,
-} from '@/lib/shipping';
+} from '../src/shipping';
 
 function rate(id: string, over: Partial<ShippingZoneRecord['rates'][number]> = {}) {
   return {

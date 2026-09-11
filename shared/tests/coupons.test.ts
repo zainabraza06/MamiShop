@@ -5,7 +5,7 @@ import {
   normalizeCouponCode,
   type CouponContext,
   type CouponRecord,
-} from '@/lib/coupons';
+} from '../src/coupons';
 
 const NOW = new Date('2026-06-15T12:00:00Z');
 
