@@ -33,11 +33,22 @@ export function SiteHeader({ categories, cartCount, isSignedIn, announcement }: 
   const menuButtonRef = React.useRef<HTMLButtonElement>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Any navigation closes the panel; otherwise it stays open over the new page.
-  React.useEffect(() => {
+  /**
+   * Any navigation closes both overlays; otherwise they stay open over the new
+   * page.
+   *
+   * Adjusted during render rather than in an effect watching `pathname`. The
+   * effect committed the new page underneath a still-open panel and then
+   * re-rendered to close it — a cascading render React's lint rules flag.
+   * Comparing with the previous pathname closes them in the same render, and
+   * still covers back/forward navigation, which a link click handler would miss.
+   */
+  const [lastPathname, setLastPathname] = React.useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
     setMobileOpen(false);
     setSearchOpen(false);
-  }, [pathname]);
+  }
 
   // Escape closes whichever overlay is open and returns focus to its trigger.
   React.useEffect(() => {

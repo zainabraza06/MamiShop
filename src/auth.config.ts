@@ -2,13 +2,16 @@ import type { NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 
 /**
- * Edge-safe auth configuration.
+ * Lightweight auth configuration for the proxy.
  *
- * `middleware.ts` runs on the edge runtime, which cannot load bcrypt or the
- * Prisma client. Splitting the config in two lets the middleware read and
- * verify the session JWT without dragging Node-only dependencies into the edge
- * bundle. The Credentials provider and the Prisma adapter are added in
- * `src/auth.ts`, which only ever runs in Node.
+ * `src/proxy.ts` only needs to read and verify the session JWT, so it imports
+ * this slim config rather than `src/auth.ts`. The Credentials provider (bcrypt)
+ * and the Prisma adapter are added in `src/auth.ts` for everything else.
+ *
+ * The split predates Next 16. Middleware used to run on the edge runtime, which
+ * could not load bcrypt or Prisma at all. Next 16's `proxy.ts` runs on Node, so
+ * the runtime no longer forces the split — it is kept because it keeps the
+ * per-request proxy bundle small and free of database code it has no use for.
  */
 export const authConfig = {
   pages: {

@@ -79,7 +79,14 @@ export function MeasurementForm({
   );
   const [touched, setTouched] = React.useState<Record<string, boolean>>({});
   const [activeRef, setActiveRef] = React.useState<string | null>(null);
-  const [showAllErrors, setShowAllErrors] = React.useState(false);
+  /**
+   * Whether every latent issue is shown, not only those for fields already left.
+   *
+   * Derived from the `revealErrors` prop rather than copied into state by an
+   * effect. That state was only ever set by the effect, so it mirrored the prop
+   * one render late — the cascading render React's lint rules now flag.
+   */
+  const showAllErrors = revealErrors;
 
   const validation = React.useMemo(
     () => validateMeasurements(template, drafts, value.unit),
@@ -139,12 +146,6 @@ export function MeasurementForm({
   };
 
   const suffix = value.unit === 'CM' ? 'cm' : 'in';
-
-  // The parent flips `revealErrors` when its submit is pressed, which promotes
-  // every latent issue to visible at once rather than field by field.
-  React.useEffect(() => {
-    if (revealErrors) setShowAllErrors(true);
-  }, [revealErrors]);
 
   const summaryErrors = React.useMemo(
     () =>

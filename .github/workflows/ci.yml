@@ -182,6 +182,12 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_check
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/migration_check
+      # Must be a SEPARATE database. Prisma wipes the shadow database in order to
+      # replay the migration history into it, so pointing this at DATABASE_URL
+      # erases that database. That is exactly how a local development catalogue
+      # was lost while reproducing this job; check-migration-drift.mjs now refuses
+      # to run when the two resolve to the same database.
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_shadow
 
     steps:
       - uses: actions/checkout@v4
@@ -194,17 +200,12 @@ jobs:
       - name: Apply the full migration history
         run: npx prisma migrate deploy
 
+      - name: Create the shadow database
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE migration_shadow;"
+
+      # Same script developers run locally, so the safety check is not CI-only.
       - name: Fail if the schema has drifted from its migrations
-        run: |
-          npx prisma migrate diff \
-            --from-migrations ./prisma/migrations \
-            --to-schema-datamodel ./prisma/schema.prisma \
-            --shadow-database-url "$DATABASE_URL" \
-            --exit-code || {
-              echo "::error::schema.prisma has changes with no corresponding migration."
-              echo "Run: npx prisma migrate dev --name <description>"
-              exit 1
-            }
+        run: npm run db:check-drift
 
   security:
     name: Dependency audit

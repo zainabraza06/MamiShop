@@ -8,8 +8,8 @@ import type { UserRole } from '@prisma/client';
  *   2. A user's `permissions[]` column grants extras on top, so the owner can
  *      give one staff member refund rights without promoting them to admin.
  *
- * This module is pure and importable from the edge middleware. It never
- * decides anything on its own — every server entry point re-checks the
+ * This module is pure, with no I/O, so the per-request proxy can import it.
+ * It never decides anything on its own — every server entry point re-checks the
  * session's role against it. Client-side role checks are for hiding UI only,
  * never for authorisation.
  */

@@ -123,9 +123,19 @@ export function ProductDetail({
     return variantImages.length > 0 ? [...variantImages, ...shared] : shared;
   }, [product.images, selectedVariantId]);
 
-  React.useEffect(() => {
+  /**
+   * Choosing a colour resets the gallery to that colour's first photo.
+   *
+   * Done in the event handler rather than an effect watching
+   * `selectedVariantId`. The effect version rendered once with the new variant
+   * and the old image index, then again after resetting — a cascading render
+   * that React's lint rules now flag, and a brief moment where the previous
+   * index pointed into the new colour's gallery.
+   */
+  function selectVariant(id: string) {
+    setSelectedVariantId(id);
     setActiveImage(0);
-  }, [selectedVariantId]);
+  }
 
   /** Applies a saved measurement set, or clears back to a blank form. */
   function applyProfile(id: string | null) {
@@ -330,7 +340,7 @@ export function ProductDetail({
                     role="radio"
                     aria-checked={selected}
                     disabled={soldOut}
-                    onClick={() => setSelectedVariantId(variant.id)}
+                    onClick={() => selectVariant(variant.id)}
                     className={cn(
                       'inline-flex min-h-11 items-center gap-2 rounded-md border px-3 text-sm transition-colors',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',

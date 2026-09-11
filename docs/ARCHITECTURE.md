@@ -152,10 +152,10 @@ A test checking for "not found" text would have passed.
 
 Two layers, and the redundancy is deliberate. Full detail in `docs/SECURITY.md`.
 
-The short version: `middleware.ts` gives a fast redirect from the session JWT,
+The short version: `src/proxy.ts` gives a fast redirect from the session JWT,
 which reflects the user's role _as of sign-in_. `src/server/session.ts` decides,
-by re-reading the live row. Delete the middleware and the app is still secure,
-only less pleasant — a matcher bug must not become a privilege escalation.
+by re-reading the live row. Delete the proxy and the app is still secure, only
+less pleasant — a matcher bug must not become a privilege escalation.
 
 ---
 

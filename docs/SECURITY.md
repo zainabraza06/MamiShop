@@ -67,12 +67,12 @@ Two layers, and the redundancy is deliberate.
 
 | Layer                   | What it does                           | Trusted for authorisation |
 | ----------------------- | -------------------------------------- | ------------------------- |
-| `src/middleware.ts`     | Fast redirect based on the session JWT | **No**                    |
+| `src/proxy.ts`          | Fast redirect based on the session JWT | **No**                    |
 | `src/server/session.ts` | Re-reads the live user row and decides | **Yes**                   |
 
 A JWT carries the user's role _as of sign-in_. Demote a staff member at 09:00
 and their week-old token still claims `ADMIN`. So `requireStaff()` and
-`requirePermission()` query the database. If `middleware.ts` were deleted the
+`requirePermission()` query the database. If `src/proxy.ts` were deleted the
 app would still be secure, only less pleasant to use — a matcher bug must not
 become a privilege escalation.
 

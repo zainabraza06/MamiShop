@@ -122,5 +122,5 @@ point re-reads the user's live role and status rather than trusting the token.
 expire, and an invoice always matches the current order record. The trade-off is
 CPU per download, which is fine at this volume.
 
-**`next lint` is deprecated**, so `npm run lint` calls ESLint directly. The
-Next-specific rules still run via `eslint-config-next` in the flat config.
+**`next lint` no longer exists.** Next 16 removed it, so `npm run lint` calls
+ESLint directly using the native flat configs `eslint-config-next` now ships.

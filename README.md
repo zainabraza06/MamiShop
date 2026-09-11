@@ -120,12 +120,12 @@ which apportions a discount across lines without losing or inventing a paisa.
 
 ### Two-layer authorisation
 
-`src/middleware.ts` gives a fast redirect from the session JWT.
+`src/proxy.ts` gives a fast redirect from the session JWT.
 `src/server/session.ts` **decides**, by re-reading the live user row.
 
 The distinction matters: a JWT carries the role as of sign-in, so a staff member
-demoted five minutes ago still presents an `ADMIN` token. Deleting the
-middleware would leave the app secure, only less pleasant to use. That
+demoted five minutes ago still presents an `ADMIN` token. Deleting the proxy
+would leave the app secure, only less pleasant to use. That
 redundancy is deliberate — a matcher bug should not become a privilege
 escalation.
 

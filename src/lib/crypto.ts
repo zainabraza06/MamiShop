@@ -1,8 +1,9 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 /**
- * Small crypto helpers. Password hashing lives in src/lib/password.ts because
- * bcrypt must not be bundled into the edge middleware runtime.
+ * Small crypto helpers. Password hashing lives separately in
+ * src/lib/password.ts, so code that only needs these helpers — signature checks,
+ * token generation — does not pull bcrypt into its bundle.
  */
 
 /**

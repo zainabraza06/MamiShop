@@ -4,7 +4,6 @@ import type { Metadata } from 'next';
 import { Truck, RotateCcw, ShieldCheck } from 'lucide-react';
 import {
   getProductBySlug,
-  getPublishedProductSlugs,
   getRatingBreakdown,
   getRelatedProducts,
   getProductReviews,
@@ -22,10 +21,19 @@ import type { MeasurementTemplateKey } from '@/lib/measurements';
 /**
  * Product detail page.
  *
- * Incrementally static: prebuilt for the best sellers at deploy time,
- * generated on first request for the rest, revalidated hourly.
- * `dynamicParams` stays true so a newly added product is reachable without a
- * deploy.
+ * Rendered per request, and declared so explicitly. The page reads the session
+ * (to offer the customer's saved measurement profiles) and its layout reads the
+ * cart cookie, so its HTML is inherently per-visitor.
+ *
+ * It used to be configured for ISR (`revalidate` + `generateStaticParams`), but
+ * that never cached anything: Next 15 quietly rendered it dynamically at request
+ * time because of those cookie reads. Next 16 stopped papering over it. Whether
+ * the route came out static or dynamic then depended on whether the *build*
+ * could reach a populated database. A build against an empty catalogue
+ * prebuilt no pages, left the route marked static, and every product page failed
+ * at request time with `DYNAMIC_SERVER_USAGE` — a 500. A deploy whose build step
+ * cannot reach the database would fail the same way in production.
+ * `force-dynamic` removes that dependence on build-time data.
  *
  * Note the Suspense boundary above this route. A `loading.tsx` placed at
  * `products/` rather than inside the listing's `(list)` route group wraps this
@@ -34,13 +42,7 @@ import type { MeasurementTemplateKey } from '@/lib/measurements';
  * product URL answers 200 with 404 content - a soft 404 that search engines
  * index as a real page. See the comment in products/(list)/loading.tsx.
  */
-export const revalidate = 3600;
-export const dynamicParams = true;
-
-export async function generateStaticParams() {
-  const slugs = await getPublishedProductSlugs(200);
-  return slugs.map((slug) => ({ slug }));
-}
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,

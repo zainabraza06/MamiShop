@@ -82,9 +82,20 @@ export function AdminShell({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
-  React.useEffect(() => {
+  /**
+   * Close the mobile drawer whenever the route changes.
+   *
+   * Adjusted during render rather than in an effect watching `pathname`. The
+   * effect committed a frame with the new page behind a still-open drawer and
+   * then re-rendered to close it — the cascading render React's lint rules
+   * flag. Comparing against the previous pathname closes it in the same render,
+   * and still catches back/forward navigation that no click handler would see.
+   */
+  const [lastPathname, setLastPathname] = React.useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
     setMobileOpen(false);
-  }, [pathname]);
+  }
 
   const principal: Principal = {
     role: user.role as Principal['role'],

@@ -8,7 +8,7 @@ import type { UserRole, UserStatus } from '@prisma/client';
 /**
  * Server-side session guards. This is the authorisation boundary.
  *
- * The middleware in src/middleware.ts gives a fast redirect based on the
+ * The proxy in src/proxy.ts gives a fast redirect based on the
  * session JWT; these functions decide. The distinction matters because a JWT
  * carries the user's role *as of sign-in*. If an owner demotes a staff member
  * at 09:00, that person's week-old token still claims ADMIN. So anything that

@@ -5,19 +5,22 @@ import { STAFF_ROLES } from '@/lib/rbac';
 import type { UserRole } from '@prisma/client';
 
 /**
- * Edge middleware: the first of two authorisation gates.
+ * Proxy (formerly middleware): the first of two authorisation gates.
+ *
+ * Next 16 renamed the `middleware.ts` convention to `proxy.ts`; the build warns
+ * on the old name. Behaviour is unchanged, and a default export remains valid.
  *
  * This runs before the page and gives a fast redirect for the obvious cases —
  * an anonymous visitor hitting /admin, a customer hitting /account. It reads
- * the signed session JWT, which is cheap on the edge but reflects the user's
- * state at sign-in rather than right now.
+ * the signed session JWT, which is cheap but reflects the user's state at
+ * sign-in rather than right now.
  *
  * It is therefore NOT the security boundary. Every admin page and every
  * mutating route handler independently re-checks the live user record via
  * `requireStaff()` / `requirePermission()`. If this file were deleted the app
  * would still be secure, only less pleasant to use. That redundancy is
- * deliberate: middleware matchers are easy to get subtly wrong, and a matcher
- * bug should not become a privilege escalation.
+ * deliberate: matchers are easy to get subtly wrong, and a matcher bug should
+ * not become a privilege escalation.
  */
 const { auth } = NextAuth(authConfig);
 

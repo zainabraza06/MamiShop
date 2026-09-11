@@ -7,7 +7,8 @@ import bcrypt from 'bcryptjs';
  * cracking expensive, low enough that a login does not monopolise a serverless
  * invocation. Revisit the cost annually as hardware improves.
  *
- * Isolated in its own module so edge runtimes (middleware) never pull bcrypt in.
+ * Isolated in its own module so bcrypt is bundled only where passwords are
+ * actually checked, not into every module that needs a small crypto helper.
  */
 const BCRYPT_COST = 12;
 
