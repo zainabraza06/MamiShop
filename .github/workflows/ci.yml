@@ -154,7 +154,7 @@ jobs:
       # Cached separately from node_modules: browser binaries are ~400MB and
       # change far less often than dependencies.
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
