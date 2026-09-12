@@ -75,6 +75,25 @@ export const currencySchema = z.enum(SUPPORTED_CURRENCIES);
 
 export const cuidSchema = z.string().min(1).max(64);
 
+/**
+ * An image reference: either a full URL (Cloudinary, once uploads land) or a
+ * path served from our own `public/` folder. Demanding an absolute URL would
+ * reject every image we ship with the catalogue, which makes editing any
+ * seeded product impossible.
+ */
+export const imageRefSchema = z
+  .string()
+  .trim()
+  .min(1, 'Enter an image URL or path.')
+  .max(500)
+  .refine(
+    (value) =>
+      value.startsWith('/')
+        ? !value.startsWith('//')
+        : /^https?:\/\//.test(value) && URL.canParse(value),
+    'Use a full https:// address or a path beginning with /.',
+  );
+
 /** Cursor pagination — offset pagination degrades badly on a large catalogue. */
 export const paginationSchema = z.object({
   cursor: z.string().max(64).optional(),
@@ -332,7 +351,7 @@ export const productSchema = z.object({
     .array(
       z.object({
         id: cuidSchema.optional(),
-        url: z.string().url(),
+        url: imageRefSchema,
         publicId: z.string().max(200).optional(),
         alt: safeText(160, 'Alt text').pipe(
           z.string().min(1, 'Alt text is required for accessibility.'),
@@ -349,7 +368,7 @@ export const categorySchema = z.object({
   slug: slugSchema,
   parentId: cuidSchema.nullable().optional(),
   description: safeText(500, 'Description').optional(),
-  imageUrl: z.string().url().optional().or(z.literal('')),
+  imageUrl: imageRefSchema.optional().or(z.literal('')),
   position: z.coerce.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
   isFeatured: z.boolean().default(false),

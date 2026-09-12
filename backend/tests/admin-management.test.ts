@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 const prismaMock = vi.hoisted(() => {
-  const mock: Record<string, unknown> = {
+  const mock = {
     user: { findUnique: vi.fn() },
     order: {
       findUnique: vi.fn(),
@@ -33,10 +33,12 @@ const prismaMock = vi.hoisted(() => {
     returnRequest: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn(), groupBy: vi.fn() },
     auditLog: { create: vi.fn() },
     job: { create: vi.fn(), findFirst: vi.fn() },
+    $transaction: vi.fn(),
   };
-  // The services run their work inside a transaction; the callback gets the
-  // same mock, so assertions do not care which client was used.
-  mock.$transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(mock));
+
+  // The services do their work inside a transaction; the callback is handed
+  // the same mock, so assertions need not care which client was used.
+  mock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mock));
   return mock;
 });
 
