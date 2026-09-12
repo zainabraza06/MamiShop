@@ -1,5 +1,5 @@
 import type { MeasurementTemplateKey } from './measurements';
-import type { OrderStatus } from './order-status';
+import type { OrderStatus, PaymentStatus } from './order-status';
 import type { UserRole } from './rbac';
 
 /**
@@ -368,6 +368,166 @@ export interface SessionUser {
 export interface AdminShell {
   user: { name: string | null; email: string; role: UserRole; permissions: string[] };
   badges: { orders: number; returns: number; reviews: number };
+}
+
+// ── Admin: orders ──────────────────────────────────────────────────────────
+
+export interface AdminOrderSummary {
+  id: string;
+  orderNumber: string;
+  email: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod: string;
+  grandTotal: number;
+  refundedTotal: number;
+  currency: string;
+  placedAt: IsoDateString;
+  isManual: boolean;
+  itemCount: number;
+}
+
+export interface AdminOrderList {
+  items: AdminOrderSummary[];
+  nextCursor: string | null;
+  total: number;
+  /** Drives the filter tabs, so staff see what is waiting without clicking. */
+  countsByStatus: Partial<Record<OrderStatus, number>>;
+}
+
+export interface AdminOrderItem {
+  id: string;
+  productId: string | null;
+  productName: string;
+  variantName: string | null;
+  sku: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  measurementUnit: string | null;
+  measurementSnapshot: Record<string, number> | null;
+  measurementTemplate: string | null;
+  customNote: string | null;
+  productionStatus: string;
+}
+
+export interface AdminOrderEvent {
+  id: string;
+  status: OrderStatus;
+  title: string;
+  description: string | null;
+  isPublic: boolean;
+  createdAt: IsoDateString;
+}
+
+export interface AdminPaymentTransaction {
+  id: string;
+  kind: string;
+  status: string;
+  amount: number;
+  currency: string;
+  reference: string | null;
+  createdAt: IsoDateString;
+}
+
+export interface AdminOrderDetail {
+  id: string;
+  orderNumber: string;
+  email: string;
+  phone: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod: string;
+  currency: string;
+  subtotal: number;
+  discountTotal: number;
+  shippingTotal: number;
+  taxTotal: number;
+  grandTotal: number;
+  refundedTotal: number;
+  couponCode: string | null;
+  shippingSnapshot: ShippingAddressSnapshot;
+  trackingNumber: string | null;
+  courier: string | null;
+  shippedAt: IsoDateString | null;
+  deliveredAt: IsoDateString | null;
+  cancelledAt: IsoDateString | null;
+  cancelReason: string | null;
+  customerNote: string | null;
+  staffNote: string | null;
+  isManual: boolean;
+  placedAt: IsoDateString;
+  items: AdminOrderItem[];
+  events: AdminOrderEvent[];
+  payments: AdminPaymentTransaction[];
+  returnRequests: {
+    id: string;
+    requestNumber: string;
+    status: string;
+    kind: string;
+    createdAt: IsoDateString;
+  }[];
+  user: { id: string; name: string | null; email: string } | null;
+}
+
+// ── Admin: moderation ──────────────────────────────────────────────────────
+
+export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface AdminReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string;
+  photos: string[];
+  isVerifiedPurchase: boolean;
+  status: ReviewStatus;
+  createdAt: IsoDateString;
+  user: { name: string | null; email: string };
+  product: { name: string; slug: string };
+}
+
+export interface AdminReviewList {
+  items: AdminReview[];
+  nextCursor: string | null;
+  countsByStatus: Partial<Record<ReviewStatus, number>>;
+}
+
+export type ReturnStatus =
+  | 'REQUESTED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'IN_TRANSIT'
+  | 'RECEIVED'
+  | 'REFUNDED'
+  | 'EXCHANGED'
+  | 'CLOSED';
+
+export interface AdminReturn {
+  id: string;
+  requestNumber: string;
+  kind: 'RETURN' | 'EXCHANGE';
+  status: ReturnStatus;
+  reason: string;
+  detail: string | null;
+  photos: string[];
+  refundAmount: number | null;
+  staffNote: string | null;
+  createdAt: IsoDateString;
+  order: {
+    id: string;
+    orderNumber: string;
+    email: string;
+    currency: string;
+    grandTotal: number;
+  };
+  items: { id: string; quantity: number; reason: string | null }[];
+}
+
+export interface AdminReturnList {
+  items: AdminReturn[];
+  nextCursor: string | null;
+  countsByStatus: Partial<Record<ReturnStatus, number>>;
 }
 
 export interface AdminDashboard {

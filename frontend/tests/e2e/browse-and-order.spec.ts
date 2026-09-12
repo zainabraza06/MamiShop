@@ -282,6 +282,87 @@ test.describe('help and policy pages', () => {
   });
 });
 
+test.describe('admin', () => {
+  /**
+   * The other side of the counter: an order arrives and staff act on it.
+   *
+   * The order is placed through the API first so the test does not depend on
+   * another test having run, or on the seed containing orders — it contains
+   * none, by design.
+   */
+  test('staff can find an order, open it, and move it along', async ({ page }) => {
+    const api = page.request;
+
+    const listing = await api.get('/api/products?limit=24');
+    const { items } = (await listing.json()) as { items: { id: string; slug: string }[] };
+
+    let productId: string | null = null;
+    for (const item of items) {
+      const detail = await api.get(`/api/products/${item.slug}`);
+      const body = (await detail.json()) as {
+        product: { id: string; requiresMeasurements: boolean };
+      };
+      if (!body.product.requiresMeasurements) {
+        productId = body.product.id;
+        break;
+      }
+    }
+    expect(productId, 'a product that needs no measurements').toBeTruthy();
+
+    await api.post('/api/cart/items', { data: { productId, quantity: 1 } });
+    const quote = await api.post('/api/checkout/quote', {
+      data: { country: 'PK', state: 'Punjab', city: 'Lahore', paymentMethod: 'COD' },
+    });
+    const { rates } = (await quote.json()) as { rates: { id: string }[] };
+
+    const placed = await api.post('/api/checkout', {
+      data: {
+        email: `admin-e2e-${Date.now()}@example.com`,
+        phone: '03001234567',
+        shippingAddress: {
+          fullName: 'Admin E2E',
+          phone: '03001234567',
+          line1: '2 Workshop Road',
+          city: 'Lahore',
+          state: 'Punjab',
+          country: 'PK',
+          type: 'SHIPPING',
+          isDefault: true,
+        },
+        billingSameAsShipping: true,
+        shippingRateId: rates[0].id,
+        paymentMethod: 'COD',
+        loyaltyPoints: 0,
+        saveAddress: false,
+        createAccount: false,
+        acceptTerms: true,
+      },
+    });
+    expect(placed.status()).toBe(201);
+    const { orderNumber } = (await placed.json()) as { orderNumber: string };
+
+    // Now as staff.
+    const signIn = await api.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(signIn.status()).toBe(200);
+
+    await page.goto('/admin/orders?status=PENDING');
+    await expect(page.getByRole('heading', { name: 'Orders', exact: true })).toBeVisible();
+
+    await page.getByRole('link', { name: orderNumber }).click();
+    await expect(page.getByRole('heading', { name: orderNumber })).toBeVisible();
+
+    // The state machine offers only legal moves: a pending order confirms.
+    await page.getByRole('button', { name: /update status/i }).click();
+    await expect(page.getByText(/moved to confirmed/i)).toBeVisible();
+    await expect(page.getByText('Confirmed').first()).toBeVisible();
+  });
+});
+
 test.describe('operational endpoints', () => {
   test('health reports the database as a hard dependency', async ({ request }) => {
     const response = await request.get('/api/health');
