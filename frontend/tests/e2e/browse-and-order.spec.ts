@@ -361,6 +361,73 @@ test.describe('admin', () => {
     await expect(page.getByText(/moved to confirmed/i)).toBeVisible();
     await expect(page.getByText('Confirmed').first()).toBeVisible();
   });
+
+  test('an admin can add a product and it starts life as a draft', async ({ page }, testInfo) => {
+    const signIn = await page.request.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(signIn.status()).toBe(200);
+
+    // The worker index is in the stamp because the projects run in parallel,
+    // and the SKU is unique across the whole catalogue.
+    const stamp = `${Date.now()}${testInfo.workerIndex}`;
+    const name = `E2E Test Abaya ${stamp}`;
+
+    await page.goto('/admin/products/new');
+
+    // Located by role for the reason spelled out in the checkout test: the
+    // accessible name carries a visually hidden "(required)" suffix.
+    const form = page.locator('#main-content');
+    await form.getByRole('textbox', { name: /^Name/ }).fill(name);
+    await form.getByRole('textbox', { name: /^SKU/ }).fill(`MS-E2E-${stamp}`);
+    await form.getByRole('spinbutton', { name: /^Price \(PKR\)/ }).fill('7500');
+
+    // The web address is derived from the name, so links stay readable.
+    await expect(form.getByRole('textbox', { name: /^Web address/ })).toHaveValue(
+      /^e2e-test-abaya-\d+$/,
+    );
+
+    await page.getByRole('button', { name: 'Create product' }).click();
+
+    // Lands on the piece's own page, which is where you would keep editing.
+    await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
+    await expect(page.getByText('draft', { exact: true })).toBeVisible();
+
+    // And nothing about it reached the storefront.
+    await page.goto('/admin/products?status=DRAFT');
+    await expect(page.getByRole('link', { name })).toBeVisible();
+  });
+
+  test('a customer record shows their orders and never their credentials', async ({ page }) => {
+    const signIn = await page.request.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(signIn.status()).toBe(200);
+
+    await page.goto('/admin/customers');
+    await expect(page.getByRole('heading', { name: 'Customers', level: 1 })).toBeVisible();
+
+    const firstCustomer = page.locator('#main-content tbody tr').first().getByRole('link').first();
+    await expect(firstCustomer).toBeVisible();
+    await firstCustomer.click();
+
+    await expect(page.getByRole('heading', { name: 'Orders', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Access', level: 2 })).toBeVisible();
+
+    // The API behind the screen hands over a person, not a login.
+    const url = new URL(page.url());
+    const detail = await page.request.get(`/api${url.pathname.replace('/admin', '/admin')}`);
+    expect(detail.status()).toBe(200);
+    const body = await detail.text();
+    expect(body).not.toContain('passwordHash');
+    expect(body).not.toContain('$2b$');
+  });
 });
 
 test.describe('operational endpoints', () => {

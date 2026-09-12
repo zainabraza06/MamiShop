@@ -38,6 +38,8 @@ export type AuditAction =
   | 'review.moderate'
   | 'customer.update'
   | 'customer.suspend'
+  | 'customer.reinstate'
+  | 'customer.loyalty_adjust'
   | 'staff.create'
   | 'staff.update'
   | 'staff.role_change'

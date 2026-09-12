@@ -47,10 +47,23 @@ export function isTerminal(status: OrderStatus): boolean {
   return TRANSITIONS[status].length === 0;
 }
 
+export const ORDER_STATUSES = Object.keys(TRANSITIONS) as OrderStatus[];
+
 /** Statuses that still count toward revenue. */
 export function countsAsRevenue(status: OrderStatus): boolean {
   return status !== 'CANCELLED' && status !== 'REFUNDED';
 }
+
+/**
+ * Statuses whose money the shop has actually taken.
+ *
+ * Narrower than `countsAsRevenue`, which only excludes the two statuses where
+ * money went back. A pending order is a hope, not a sale: counting it would
+ * flatter every lifetime-value figure on the customer screen.
+ */
+export const BANKED_STATUSES: OrderStatus[] = ORDER_STATUSES.filter(
+  (status) => countsAsRevenue(status) && status !== 'PENDING',
+);
 
 /** Whether the customer can still request a return. */
 export function returnsAllowed(

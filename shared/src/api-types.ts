@@ -470,6 +470,171 @@ export interface AdminOrderDetail {
   user: { id: string; name: string | null; email: string } | null;
 }
 
+// ── Admin: catalogue ───────────────────────────────────────────────────────
+
+export type ProductStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+
+export interface AdminProductSummary {
+  id: string;
+  sku: string;
+  slug: string;
+  name: string;
+  status: ProductStatus;
+  basePrice: number;
+  currency: string;
+  isFeatured: boolean;
+  salesCount: number;
+  updatedAt: IsoDateString;
+  category: { name: string };
+  image: { url: string; alt: string } | null;
+  /** Across active variants only — what is actually sellable. */
+  stockOnHand: number;
+  lowStock: boolean;
+  variants: {
+    id: string;
+    name: string;
+    stockOnHand: number;
+    lowStockAlert: number;
+    isActive: boolean;
+  }[];
+}
+
+export interface AdminProductList {
+  items: AdminProductSummary[];
+  nextCursor: string | null;
+  total: number;
+  countsByStatus: Partial<Record<ProductStatus, number>>;
+}
+
+export interface AdminProductVariant {
+  id: string;
+  sku: string;
+  kind: string;
+  name: string;
+  colorHex: string | null;
+  priceDelta: number;
+  position: number;
+  isActive: boolean;
+  trackInventory: boolean;
+  stockOnHand: number;
+  lowStockAlert: number;
+}
+
+export interface AdminProductDetail {
+  id: string;
+  sku: string;
+  slug: string;
+  name: string;
+  categoryId: string;
+  status: ProductStatus;
+  shortDescription: string | null;
+  description: string | null;
+  careInstructions: string | null;
+  fabric: string | null;
+  pieces: string | null;
+  tags: string[];
+  basePrice: number;
+  compareAtPrice: number | null;
+  currency: string;
+  taxClass: string;
+  requiresMeasurements: boolean;
+  sizingTemplate: string | null;
+  stitchingDays: number;
+  isFeatured: boolean;
+  isNewArrival: boolean;
+  weightGrams: number;
+  metaTitle: string | null;
+  metaDescription: string | null;
+  archivedAt: IsoDateString | null;
+  variants: AdminProductVariant[];
+  images: { id: string; url: string; alt: string; position: number }[];
+  category: { id: string; name: string };
+}
+
+export interface AdminCategory {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  isActive: boolean;
+  sizingTemplate: string | null;
+  productCount: number;
+}
+
+// ── Admin: customers ───────────────────────────────────────────────────────
+
+export type CustomerStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
+
+export interface AdminCustomerSummary {
+  id: string;
+  name: string | null;
+  email: string;
+  phone: string | null;
+  status: CustomerStatus;
+  marketingOptIn: boolean;
+  createdAt: IsoDateString;
+  lastLoginAt: IsoDateString | null;
+  orderCount: number;
+  /** Minor units, banked orders only — see BANKED_STATUSES. */
+  lifetimeSpend: number;
+  lastOrderAt: IsoDateString | null;
+}
+
+export interface AdminCustomerList {
+  items: AdminCustomerSummary[];
+  total: number;
+  nextCursor: string | null;
+}
+
+export interface AdminCustomerOrder {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  grandTotal: number;
+  currency: string;
+  placedAt: IsoDateString;
+}
+
+export interface AdminCustomerDetail {
+  id: string;
+  name: string | null;
+  email: string;
+  emailVerified: IsoDateString | null;
+  phone: string | null;
+  status: CustomerStatus;
+  marketingOptIn: boolean;
+  locale: string;
+  currency: string;
+  createdAt: IsoDateString;
+  lastLoginAt: IsoDateString | null;
+  deletedAt: IsoDateString | null;
+  addresses: {
+    id: string;
+    fullName: string;
+    phone: string;
+    line1: string;
+    line2: string | null;
+    city: string;
+    state: string;
+    postalCode: string | null;
+    country: string;
+    isDefault: boolean;
+  }[];
+  measurementProfiles: {
+    id: string;
+    label: string;
+    template: string;
+    unit: string;
+    updatedAt: IsoDateString;
+  }[];
+  loyaltyAccount: { balance: number; lifetimeEarned: number; lifetimeSpent: number } | null;
+  reviewCount: number;
+  returnCount: number;
+  lifetimeSpend: number;
+  paidOrderCount: number;
+}
+
 // ── Admin: moderation ──────────────────────────────────────────────────────
 
 export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
