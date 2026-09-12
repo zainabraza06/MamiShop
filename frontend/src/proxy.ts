@@ -3,8 +3,8 @@ import { jwtVerify } from 'jose';
 import { STAFF_ROLES, type UserRole } from '@momishop/shared/rbac';
 import {
   SESSION_AUDIENCE,
+  SESSION_COOKIE_NAMES,
   SESSION_ISSUER,
-  sessionCookieName,
 } from '@momishop/shared/session-contract';
 
 /**
@@ -43,12 +43,20 @@ interface ProxySession {
 
 /** The session claims, or null when there is no valid token. */
 async function readSession(request: NextRequest): Promise<ProxySession | null> {
-  const token = request.cookies.get(sessionCookieName(process.env.NODE_ENV === 'production'));
+  /**
+   * Either cookie name is accepted: the API picks one from the deployment's
+   * scheme, and the signature below is what actually decides. Reading only the
+   * name this process would have chosen is how a production storefront came to
+   * ignore every session its API had issued.
+   */
+  const token = SESSION_COOKIE_NAMES.map((name) => request.cookies.get(name)?.value).find(
+    (value): value is string => Boolean(value),
+  );
   const secret = process.env.AUTH_SECRET;
-  if (!token?.value || !secret) return null;
+  if (!token || !secret) return null;
 
   try {
-    const { payload } = await jwtVerify(token.value, new TextEncoder().encode(secret), {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
       algorithms: ['HS256'],
       issuer: SESSION_ISSUER,
       audience: SESSION_AUDIENCE,

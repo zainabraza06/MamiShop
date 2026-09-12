@@ -240,11 +240,19 @@ Set in `frontend/next.config.mjs` and applied to every page response:
 The API sets its own headers with Helmet, marks every response `no-store` unless
 a route opts into caching, and does not advertise Express.
 
-**Cookies** — the session cookie is `httpOnly`, `sameSite=lax`, and in production
-`secure` with the `__Host-` prefix, which makes the browser refuse it unless it
-is host-only, path `/` and delivered over HTTPS — so no sibling subdomain can
-plant or overwrite it. The cart cookie is `httpOnly` too and carries an opaque
-random token, not a cart id that could be incremented into someone else's basket.
+**Cookies** — the session cookie is `httpOnly`, `sameSite=lax`, and, wherever the
+storefront is served over HTTPS, `secure` with the `__Host-` prefix, which makes
+the browser refuse it unless it is host-only, path `/` and delivered over HTTPS —
+so no sibling subdomain can plant or overwrite it. The cart cookie is `httpOnly`
+too and carries an opaque random token, not a cart id that could be incremented
+into someone else's basket.
+
+That choice follows the deployment's scheme (`APP_URL`) rather than `NODE_ENV`,
+for two reasons: a `__Host-` cookie sent over plain HTTP is silently dropped by
+the browser, and two services each reading their own `NODE_ENV` can disagree
+about the name — which is exactly how a production-mode storefront came to
+ignore every session its API had issued. Readers accept either name, because the
+signature is what decides whether a token is trusted.
 
 **CSRF** — cookies are `SameSite=Lax`, which already keeps them off a cross-site
 form POST. The API adds a second check: a state-changing request whose `Origin`

@@ -186,6 +186,33 @@ test.describe('authorisation', () => {
     await expect(page).toHaveURL(/localhost/);
     await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
   });
+
+  /**
+   * The signed-in half of the proxy, which nothing else covers.
+   *
+   * Every other authorisation test here is anonymous, and an anonymous visitor
+   * is redirected whether the proxy can read a session or not. That is how the
+   * storefront once shipped with no AUTH_SECRET in the runtime that serves
+   * requests: the proxy silently treated every signed-in visitor as anonymous,
+   * and sent staff who had just signed in straight back to the sign-in page.
+   */
+  test('a signed-in staff member reaches the admin dashboard', async ({ page }) => {
+    const response = await page.request.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(response.status()).toBe(200);
+
+    await page.goto('/admin');
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+
+    // And the sign-in page bounces someone who is already signed in.
+    await page.goto('/login');
+    await expect(page).toHaveURL(/\/admin$/);
+  });
 });
 
 test.describe('operational endpoints', () => {

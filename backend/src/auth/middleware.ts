@@ -1,9 +1,8 @@
 import type { RequestHandler } from 'express';
 import {
+  SESSION_COOKIE_NAMES,
   SESSION_REFRESH_AFTER_SECONDS,
-  sessionCookieName,
 } from '@momishop/shared/session-contract';
-import { isProduction } from '../lib/env';
 import { endSession, startSession, verifySessionToken } from './session-token';
 
 /**
@@ -21,8 +20,11 @@ import { endSession, startSession, verifySessionToken } from './session-token';
 export const authenticate: RequestHandler = async (req, res, next) => {
   req.auth = null;
 
-  const token: unknown = req.cookies?.[sessionCookieName(isProduction())];
-  if (typeof token !== 'string' || token.length === 0) return next();
+  // Either name is accepted; the signature is what decides. See the contract.
+  const token = SESSION_COOKIE_NAMES.map((name) => req.cookies?.[name]).find(
+    (value): value is string => typeof value === 'string' && value.length > 0,
+  );
+  if (!token) return next();
 
   const claims = await verifySessionToken(token);
   if (!claims) {

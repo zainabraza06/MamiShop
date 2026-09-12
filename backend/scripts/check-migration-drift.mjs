@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { loadEnvFiles } from './load-env.mjs';
+import { loadEnvFiles } from '../../scripts/load-env.mjs';
 
 /**
  * Fails when schema.prisma has changes with no corresponding migration.

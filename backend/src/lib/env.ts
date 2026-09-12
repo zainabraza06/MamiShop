@@ -94,6 +94,19 @@ export function isProduction(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
+/**
+ * Whether cookies should be marked `Secure` (and carry the `__Host-` prefix).
+ *
+ * Keyed to the storefront's public scheme rather than NODE_ENV, because that is
+ * the thing that actually decides whether a browser will keep the cookie: a
+ * Secure cookie sent over plain HTTP is dropped. It also gives both services a
+ * single shared signal — reading NODE_ENV separately is how a production
+ * storefront came to look for a cookie the API had issued under another name.
+ */
+export function secureCookies(): boolean {
+  return (process.env.APP_URL ?? '').startsWith('https://');
+}
+
 function flag(name: string, storefrontName: string, fallback: boolean): boolean {
   const raw = process.env[name] ?? process.env[storefrontName];
   return raw === undefined || raw === '' ? fallback : raw === 'true';

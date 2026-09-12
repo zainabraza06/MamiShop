@@ -4,15 +4,15 @@
   "private": true,
   "description": "MomiShop storefront and admin dashboard (Next.js).",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node ../scripts/with-env.mjs next dev",
+    "build": "node ../scripts/with-env.mjs next build",
+    "start": "node ../scripts/with-env.mjs next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "gen:images": "tsx scripts/generate-placeholder-images.ts"
+    "test:e2e": "node ../scripts/with-env.mjs playwright test",
+    "test:e2e:ui": "node ../scripts/with-env.mjs playwright test --ui",
+    "gen:images": "node ../scripts/with-env.mjs tsx scripts/generate-placeholder-images.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

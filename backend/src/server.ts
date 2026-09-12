@@ -1,37 +1,19 @@
-import path from 'node:path';
+import { createApp } from './app';
+import { env } from './lib/env';
+import { prisma } from './lib/db';
+import { logger } from './lib/logger';
 
 /**
  * API entry point.
  *
- * Local .env files are loaded before anything else is imported, which is why
- * the rest of the app is pulled in with dynamic imports below: a static import
- * would evaluate modules that read process.env before the file was loaded.
- * `process.loadEnvFile` never overrides a variable that is already set, so a
- * real deployment's injected environment always wins.
+ * The .env files are loaded before Node starts this file, by
+ * `scripts/with-env.mjs` (see the `start` and `dev` scripts). A deployment that
+ * runs `node dist/server.js` directly is expected to inject real environment
+ * variables instead.
  */
-function loadLocalEnv(): void {
-  // backend/.env first, then the repository root's shared .env.
-  for (const file of [path.resolve('.env'), path.resolve('..', '.env')]) {
-    try {
-      process.loadEnvFile(file);
-    } catch {
-      // No file at that path; nothing to load.
-    }
-  }
-}
-
-async function main(): Promise<void> {
-  loadLocalEnv();
-
-  const { env } = await import('./lib/env');
+function main(): void {
   // Throws with a readable list of every missing or malformed variable.
   const config = env();
-
-  const [{ createApp }, { prisma }, { logger }] = await Promise.all([
-    import('./app'),
-    import('./lib/db'),
-    import('./lib/logger'),
-  ]);
 
   const app = createApp({
     appUrl: config.APP_URL,
@@ -57,7 +39,9 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
-main().catch((error: unknown) => {
+try {
+  main();
+} catch (error) {
   console.error(error);
   process.exit(1);
-});
+}

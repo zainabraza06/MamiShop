@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { CART_COOKIE, CART_COOKIE_MAX_AGE_SECONDS } from '@momishop/shared/session-contract';
 import { hashIp } from '../lib/crypto';
-import { isProduction } from '../lib/env';
+import { secureCookies } from '../lib/env';
 import { enforceRateLimit, type RateLimitName } from '../lib/rate-limit';
 import type { CartOwner } from '../services/cart';
 
@@ -57,7 +57,7 @@ export function setCartCookie(res: Response, token: string): void {
   res.cookie(CART_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: isProduction(),
+    secure: secureCookies(),
     path: '/',
     maxAge: CART_COOKIE_MAX_AGE_SECONDS * 1000,
   });

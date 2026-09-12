@@ -3,7 +3,7 @@ import { absoluteUrl, safeRedirectPath } from '@momishop/shared/text';
 import { registerSchema } from '@momishop/shared/validation';
 import { prisma } from '../lib/db';
 import { randomCode, randomToken } from '../lib/crypto';
-import { isProduction } from '../lib/env';
+import { secureCookies } from '../lib/env';
 import { AppError } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { hashPassword } from '../lib/password';
@@ -209,7 +209,12 @@ authRouter.get('/auth/session', async (req, res) => {
 
 function oauthStateCookieOptions(): CookieOptions {
   // Scoped to the OAuth routes, so it is not sent with every API request.
-  return { httpOnly: true, sameSite: 'lax', secure: isProduction(), path: '/api/auth/google' };
+  return {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: secureCookies(),
+    path: '/api/auth/google',
+  };
 }
 
 /** Sends the browser back to the sign-in page with a code it knows how to explain. */

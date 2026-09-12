@@ -3,12 +3,13 @@ import { SignJWT, jwtVerify } from 'jose';
 import type { UserRole } from '@momishop/shared/rbac';
 import {
   SESSION_AUDIENCE,
+  SESSION_COOKIE_NAMES,
   SESSION_ISSUER,
   SESSION_MAX_AGE_SECONDS,
   sessionCookieName,
   type SessionClaims,
 } from '@momishop/shared/session-contract';
-import { isProduction } from '../lib/env';
+import { secureCookies } from '../lib/env';
 
 /**
  * Session tokens.
@@ -88,17 +89,21 @@ export async function verifySessionToken(token: string): Promise<SessionClaims |
 }
 
 function cookieOptions(): CookieOptions {
-  return { httpOnly: true, sameSite: 'lax', secure: isProduction(), path: '/' };
+  return { httpOnly: true, sameSite: 'lax', secure: secureCookies(), path: '/' };
 }
 
 export async function startSession(res: Response, principal: SessionPrincipal): Promise<void> {
   const token = await signSessionToken(principal);
-  res.cookie(sessionCookieName(isProduction()), token, {
+  res.cookie(sessionCookieName(secureCookies()), token, {
     ...cookieOptions(),
     maxAge: SESSION_MAX_AGE_SECONDS * 1000,
   });
 }
 
+/**
+ * Clears the session under every name it could have been issued with, so a
+ * cookie set before the deployment's scheme changed cannot linger.
+ */
 export function endSession(res: Response): void {
-  res.clearCookie(sessionCookieName(isProduction()), cookieOptions());
+  for (const name of SESSION_COOKIE_NAMES) res.clearCookie(name, cookieOptions());
 }

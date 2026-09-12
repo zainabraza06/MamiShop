@@ -1,7 +1,13 @@
+import type { Response } from 'express';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SignJWT } from 'jose';
 import { SESSION_AUDIENCE, SESSION_ISSUER } from '@momishop/shared/session-contract';
-import { signSessionToken, verifySessionToken } from '../src/auth/session-token';
+import {
+  endSession,
+  signSessionToken,
+  startSession,
+  verifySessionToken,
+} from '../src/auth/session-token';
 
 /**
  * Session tokens are the only thing standing between an anonymous request and
@@ -121,5 +127,68 @@ describe('session tokens', () => {
   it('rejects garbage', async () => {
     expect(await verifySessionToken('not-a-token')).toBeNull();
     expect(await verifySessionToken('')).toBeNull();
+  });
+});
+
+/**
+ * The cookie the token travels in.
+ *
+ * `__Host-` implies Secure, and a browser drops a Secure cookie sent over plain
+ * HTTP — so the name has to follow the deployment's scheme. Deriving it from
+ * NODE_ENV instead let a production-mode storefront look for a cookie its
+ * development-mode API had never issued, which signed everyone out.
+ */
+describe('the session cookie', () => {
+  interface RecordedCookie {
+    name: string;
+    value: string;
+    options: Record<string, unknown>;
+  }
+
+  function recordingResponse() {
+    const written: RecordedCookie[] = [];
+    const res = {
+      cookie(name: string, value: string, options: Record<string, unknown>) {
+        written.push({ name, value, options });
+      },
+      clearCookie(name: string, options: Record<string, unknown>) {
+        written.push({ name, value: '', options });
+      },
+    } as unknown as Response;
+    return { res, written };
+  }
+
+  const principal = { id: 'user_1', role: 'CUSTOMER' as const, status: 'ACTIVE', permissions: [] };
+
+  afterEach(() => {
+    process.env.APP_URL = 'http://localhost:3000';
+  });
+
+  it('is plainly named and not Secure when the storefront is served over HTTP', async () => {
+    process.env.APP_URL = 'http://localhost:3000';
+    const { res, written } = recordingResponse();
+
+    await startSession(res, principal);
+
+    expect(written[0].name).toBe('momishop.session');
+    expect(written[0].options).toMatchObject({ secure: false, httpOnly: true, sameSite: 'lax' });
+  });
+
+  it('takes the __Host- prefix and Secure once the storefront is HTTPS', async () => {
+    process.env.APP_URL = 'https://momishop.pk';
+    const { res, written } = recordingResponse();
+
+    await startSession(res, principal);
+
+    expect(written[0].name).toBe('__Host-momishop.session');
+    expect(written[0].options).toMatchObject({ secure: true, path: '/' });
+  });
+
+  it('clears both names on sign-out, so one issued under the other cannot linger', () => {
+    const { res, written } = recordingResponse();
+
+    endSession(res);
+
+    expect(written.map((c) => c.name)).toEqual(['__Host-momishop.session', 'momishop.session']);
   });
 });
