@@ -28,17 +28,44 @@ jobs:
       url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
+
+      # Deployment needs secrets a repository may not have set yet. Checking
+      # here turns "every push is red" into one visible warning, and names the
+      # missing secret — the alternative is failing several steps later inside
+      # Prisma with "DIRECT_URL resolved to an empty string", which says nothing
+      # about what to do. See docs/DEPLOYMENT.md.
+      - name: Check that deployment is configured
+        id: preflight
+        env:
+          MIGRATION_URL: ${{ secrets.STAGING_DIRECT_URL }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          missing=""
+          if [ -z "$MIGRATION_URL" ]; then missing="$missing STAGING_DIRECT_URL"; fi
+          if [ -z "$VERCEL_TOKEN" ]; then missing="$missing VERCEL_TOKEN"; fi
+
+          if [ -n "$missing" ]; then
+            echo "::warning::Staging deploy skipped. Missing repository secrets:$missing — see docs/DEPLOYMENT.md."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-node@v7
+        if: steps.preflight.outputs.configured == 'true'
         with:
           node-version: '20'
           cache: npm
+
       - run: npm ci
+        if: steps.preflight.outputs.configured == 'true'
 
       # Migrations run BEFORE the new code goes live, so the schema is always
       # at least as new as the code reading it. This is only safe because every
       # migration is written to be backward-compatible with the previous
       # release - see docs/DEPLOYMENT.md for the expand/contract rule.
       - name: Apply migrations to staging
+        if: steps.preflight.outputs.configured == 'true'
         run: npm run db:deploy
         env:
           DATABASE_URL: ${{ secrets.STAGING_DIRECT_URL }}
@@ -48,6 +75,7 @@ jobs:
       # keeps working against the new API, while a new storefront may call an
       # endpoint the old API does not have.
       - name: Deploy the API
+        if: steps.preflight.outputs.configured == 'true'
         env:
           HOOK: ${{ secrets.API_DEPLOY_HOOK_URL }}
         run: |
@@ -62,6 +90,7 @@ jobs:
       # storefront only.
       - name: Deploy the storefront
         id: deploy
+        if: steps.preflight.outputs.configured == 'true'
         run: |
           npm i -g vercel@latest
           vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
@@ -76,6 +105,7 @@ jobs:
       # Through the storefront, so this exercises both services and the rewrite
       # between them: a 200 here means the API answered and the database is up.
       - name: Smoke test the deployment
+        if: steps.preflight.outputs.configured == 'true'
         run: |
           for i in $(seq 1 10); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.deploy.outputs.url }}/api/health" || true)
@@ -96,25 +126,49 @@ jobs:
       url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check that deployment is configured
+        id: preflight
+        env:
+          MIGRATION_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          missing=""
+          if [ -z "$MIGRATION_URL" ]; then missing="$missing PRODUCTION_DIRECT_URL"; fi
+          if [ -z "$VERCEL_TOKEN" ]; then missing="$missing VERCEL_TOKEN"; fi
+
+          if [ -n "$missing" ]; then
+            echo "::warning::Production deploy skipped. Missing repository secrets:$missing — see docs/DEPLOYMENT.md."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-node@v7
+        if: steps.preflight.outputs.configured == 'true'
         with:
           node-version: '20'
           cache: npm
+
       - run: npm ci
+        if: steps.preflight.outputs.configured == 'true'
 
       - name: Back up the production database
+        if: steps.preflight.outputs.configured == 'true'
         run: |
           echo "Managed provider snapshot is triggered here."
           echo "Neon/Supabase/RDS all expose a point-in-time restore API;"
           echo "see docs/DEPLOYMENT.md for the restore procedure."
 
       - name: Apply migrations to production
+        if: steps.preflight.outputs.configured == 'true'
         run: npm run db:deploy
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
           DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
 
       - name: Deploy the API
+        if: steps.preflight.outputs.configured == 'true'
         env:
           HOOK: ${{ secrets.API_DEPLOY_HOOK_URL }}
         run: |
@@ -127,6 +181,7 @@ jobs:
 
       - name: Deploy the storefront
         id: deploy
+        if: steps.preflight.outputs.configured == 'true'
         run: |
           npm i -g vercel@latest
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
@@ -139,6 +194,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Verify production health
+        if: steps.preflight.outputs.configured == 'true'
         run: |
           for i in $(seq 1 10); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://momishop.pk/api/health" || true)

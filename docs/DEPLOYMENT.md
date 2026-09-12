@@ -100,6 +100,13 @@ staging session token is valid in production.
 host runs the API. Without the last one the workflow warns and skips the API
 deploy rather than silently shipping only half the release.
 
+Until the database and Vercel secrets are set, the deploy workflow **skips with
+a warning naming what is missing** rather than failing. That keeps a repository
+without deployment configured from showing a permanently red workflow, and it
+stops the run before it reaches a confusing error further in — an unset
+`STAGING_DIRECT_URL` otherwise surfaces as Prisma complaining that `DIRECT_URL`
+resolved to an empty string.
+
 ### 4. Cron
 
 `frontend/vercel.json` registers two jobs against the storefront, which proxies
