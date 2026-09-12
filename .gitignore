@@ -41,8 +41,8 @@ logs/
 *.log
 
 # prisma
-prisma/*.db
-prisma/*.db-journal
+backend/prisma/*.db
+backend/prisma/*.db-journal
 
 # sentry
 .sentryclirc

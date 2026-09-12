@@ -10,20 +10,31 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "db:generate": "prisma generate",
+    "db:migrate": "node scripts/with-env.mjs prisma migrate dev",
+    "db:deploy": "node scripts/with-env.mjs prisma migrate deploy",
+    "db:studio": "node scripts/with-env.mjs prisma studio",
+    "db:seed": "node scripts/with-env.mjs tsx prisma/seed.ts",
+    "db:reset": "node scripts/with-env.mjs prisma migrate reset --force",
+    "db:check-drift": "node scripts/check-migration-drift.mjs"
   },
   "dependencies": {
     "@momishop/shared": "*",
     "@prisma/client": "^6.16.2",
     "@upstash/redis": "^1.35.3",
     "bcryptjs": "^3.0.2",
+    "cloudinary": "^2.7.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "helmet": "^8.3.0",
     "jose": "^6.2.12",
+    "nanoid": "^5.1.5",
+    "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
     "resend": "^6.0.1",
+    "stripe": "^18.5.0",
     "twilio": "^5.10.0",
     "zod": "^3.25.76"
   },
@@ -32,12 +43,17 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^22.15.0",
+    "@types/papaparse": "^5.3.16",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^4.1.11",
+    "prisma": "^6.16.2",
     "supertest": "^7.2.2",
     "tsup": "^8.5.1",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "vitest": "^4.1.11"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

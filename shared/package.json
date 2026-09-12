@@ -6,6 +6,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./api-types": "./src/api-types.ts",
     "./canonical-json": "./src/canonical-json.ts",
     "./coupons": "./src/coupons.ts",
     "./measurements": "./src/measurements.ts",

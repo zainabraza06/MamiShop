@@ -35,19 +35,13 @@ jobs:
       # The client must be generated before tsc, or every Prisma type is `any`
       # and the typecheck silently passes.
       - name: Generate Prisma client
-        run: npx prisma generate
+        run: npm run db:generate
 
-      - name: Type check
+      # Each workspace is checked under its own tsconfig. The shared package's
+      # has no DOM lib, so a browser API creeping into code the API imports
+      # fails here rather than at runtime on the server.
+      - name: Type check every workspace
         run: npm run typecheck
-
-      # Checked again under its own tsconfig, which has no DOM lib: the shared
-      # package is imported by the backend, so a browser API creeping into it
-      # must fail here rather than at runtime on the server.
-      - name: Type check the shared package
-        run: npm run typecheck:shared
-
-      - name: Type check the API
-        run: npm run typecheck:api
 
       # tsup bundles the shared package and jose into the output, so a broken
       # import surfaces here rather than when the service first boots.
@@ -73,23 +67,13 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npx prisma generate
+      - run: npm run db:generate
 
-      - name: Run tests with coverage
+      # Shared domain logic, the API (through supertest, with the database
+      # mocked, so no Postgres service is needed) and the storefront, each
+      # against its own coverage thresholds.
+      - name: Run every workspace's tests with coverage
         run: npm run test:coverage
-        env:
-          AUTH_SECRET: test-secret-value-at-least-32-characters-long
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
-
-      # The shared domain package has its own suite and a higher coverage bar,
-      # since everything in it is pure and cheap to test.
-      - name: Run shared package tests with coverage
-        run: npm run test:coverage -w @momishop/shared
-
-      # Drives the Express app through supertest with the database mocked, so
-      # it needs no Postgres service.
-      - name: Run API tests with coverage
-        run: npm run test:coverage -w @momishop/backend
 
       - name: Upload coverage
         if: always()
@@ -97,9 +81,9 @@ jobs:
         with:
           name: coverage
           path: |
-            coverage/
             shared/coverage/
             backend/coverage/
+            frontend/coverage/
           retention-days: 7
 
   e2e:
@@ -128,8 +112,8 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/momishop_test
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/momishop_test
       AUTH_SECRET: ci-secret-value-at-least-32-characters-long
-      AUTH_URL: http://localhost:3000
-      AUTH_TRUST_HOST: 'true'
+      APP_URL: http://localhost:3000
+      API_URL: http://localhost:4000
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       NEXT_PUBLIC_APP_NAME: MomiShop
       NEXT_PUBLIC_DEFAULT_CURRENCY: PKR
@@ -163,24 +147,29 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Generate Prisma client
+        run: npm run db:generate
+
       - name: Apply migrations
-        run: npx prisma migrate deploy
+        run: npm run db:deploy
 
       - name: Seed the database
         run: npm run db:seed
 
-      - name: Build
+      # Playwright starts both services itself (see frontend/playwright.config.ts);
+      # building first keeps a compile error out of the web-server logs.
+      - name: Build the API and the storefront
         run: npm run build
 
       - name: Run end-to-end tests
-        run: npx playwright test --project=chromium
+        run: npm run test:e2e -- --project=chromium
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
-          path: playwright-report/
+          path: frontend/playwright-report/
           retention-days: 7
 
   # Verifies the migration history applies cleanly from an empty database and
@@ -225,7 +214,7 @@ jobs:
       - run: npm ci
 
       - name: Apply the full migration history
-        run: npx prisma migrate deploy
+        run: npm run db:deploy
 
       - name: Create the shadow database
         run: PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE migration_shadow;"
