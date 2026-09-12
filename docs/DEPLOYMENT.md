@@ -24,9 +24,9 @@ The storefront proxies `/api/*` to the API, so customers only ever see one
 origin and cookies stay first-party. That means:
 
 - the storefront needs **`API_URL`**, the API's address as reached from the
-  storefront's servers;
-- both services need the **same `AUTH_SECRET`** — the API signs session tokens,
-  the storefront's proxy verifies them;
+  storefront's servers — and nothing else of its own. It holds no secrets:
+  `AUTH_SECRET` belongs to the API alone, because the proxy reads session
+  claims without verifying them (see docs/SECURITY.md);
 - the API needs **`APP_URL`** (for email links and sign-in redirects) and
   **`TRUST_PROXY`** set to match its hosting, or client IPs will be wrong and
   rate limits will pool every visitor into one bucket;
@@ -76,12 +76,12 @@ creates two things and wires the connection string between them:
 Then, in the service's **Environment** tab, fill in the values marked
 `sync: false`:
 
-| Variable         | Value                                                         |
-| ---------------- | ------------------------------------------------------------- |
-| `AUTH_SECRET`    | `openssl rand -base64 32` — the storefront needs the same one |
-| `APP_URL`        | the storefront's URL, e.g. `https://momishop.vercel.app`      |
-| `API_PUBLIC_URL` | this service's URL, e.g. `https://momishop-api.onrender.com`  |
-| `CRON_SECRET`    | `openssl rand -hex 32`                                        |
+| Variable         | Value                                                        |
+| ---------------- | ------------------------------------------------------------ |
+| `AUTH_SECRET`    | `openssl rand -base64 32` — the API alone needs this         |
+| `APP_URL`        | the storefront's URL, e.g. `https://momishop.vercel.app`     |
+| `API_PUBLIC_URL` | this service's URL, e.g. `https://momishop-api.onrender.com` |
+| `CRON_SECRET`    | `openssl rand -hex 32`                                       |
 
 Finally, **Settings → Deploy Hook**: copy that URL into the GitHub secret
 `API_DEPLOY_HOOK_URL`.
@@ -112,8 +112,8 @@ Import the repository, then set:
 - **Root Directory** `frontend` — and leave "Include files outside the root
   directory" on, because the build compiles `shared/` and installs from the
   root lockfile.
-- **Environment variables**: `API_URL` (the Render service URL), `AUTH_SECRET`
-  (the same value as the API), and the `NEXT_PUBLIC_*` set from `.env.example`.
+- **Environment variables**: `API_URL` (the Render service URL) and the
+  `NEXT_PUBLIC_*` set from `.env.example`. No secrets: the storefront has none.
 
 `API_URL` is what the storefront's server uses to reach the API; browsers never
 see it, because they call `/api/*` on the storefront's own origin and Next
@@ -127,7 +127,7 @@ Set them per service, from `.env.example`. Each service validates at boot and
 | Variable                                                | API | Storefront |
 | ------------------------------------------------------- | --- | ---------- |
 | `DATABASE_URL`, `DIRECT_URL`                            | ✓   |            |
-| `AUTH_SECRET`                                           | ✓   | ✓          |
+| `AUTH_SECRET`                                           | ✓   |            |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`                  | ✓   |            |
 | `APP_URL`, `API_PUBLIC_URL`, `TRUST_PROXY`              | ✓   |            |
 | `CRON_SECRET`                                           | ✓   |            |

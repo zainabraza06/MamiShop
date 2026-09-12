@@ -192,9 +192,10 @@ test.describe('authorisation', () => {
    *
    * Every other authorisation test here is anonymous, and an anonymous visitor
    * is redirected whether the proxy can read a session or not. That is how the
-   * storefront once shipped with no AUTH_SECRET in the runtime that serves
-   * requests: the proxy silently treated every signed-in visitor as anonymous,
-   * and sent staff who had just signed in straight back to the sign-in page.
+   * storefront twice shipped unable to read one — first with no secret in the
+   * runtime that serves requests, then with a secret that did not match the
+   * API's — each time sending staff who had just signed in back to the sign-in
+   * page.
    */
   test('a signed-in staff member reaches the admin dashboard', async ({ page }) => {
     const response = await page.request.post('/api/auth/login', {

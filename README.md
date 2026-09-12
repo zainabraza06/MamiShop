@@ -62,9 +62,8 @@ Seeded accounts:
 | Staff    | `staff@momishop.pk`  | `StaffPass!2024` |
 | Customer | `ayesha@example.com` | `Customer!2024`  |
 
-Generate a real `AUTH_SECRET` with `openssl rand -base64 32`. Both services need
-the same one: the API signs session tokens with it and the storefront's proxy
-verifies them.
+Generate a real `AUTH_SECRET` with `openssl rand -base64 32`. It belongs to the
+API alone — the storefront holds no secrets.
 
 ---
 

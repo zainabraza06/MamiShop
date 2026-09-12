@@ -1,26 +1,29 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { jwtVerify } from 'jose';
-import { STAFF_ROLES, type UserRole } from '@momishop/shared/rbac';
+import { STAFF_ROLES } from '@momishop/shared/rbac';
 import {
-  SESSION_AUDIENCE,
   SESSION_COOKIE_NAMES,
-  SESSION_ISSUER,
+  readUnverifiedClaims,
+  type SessionClaims,
 } from '@momishop/shared/session-contract';
 
 /**
  * Proxy (formerly middleware): the first of two authorisation gates.
  *
  * This runs before the page and gives a fast redirect for the obvious cases —
- * an anonymous visitor hitting /admin, a customer hitting /account. It verifies
- * the session token the API issued, which is cheap but reflects the user's
- * state at sign-in rather than right now.
+ * an anonymous visitor hitting /admin, a customer hitting /account. It reads
+ * the session cookie the API issued, **without verifying its signature**.
  *
- * It is therefore NOT the security boundary. The API re-checks the live user
- * record on every privileged request, and the admin pages get their data from
- * those checked endpoints. If this file were deleted the store would still be
- * secure, only less pleasant to use. That redundancy is deliberate: matchers
- * are easy to get subtly wrong, and a matcher bug should not become a
- * privilege escalation.
+ * That is deliberate. This is NOT the security boundary: every route behind it
+ * gets its data from the API, which verifies the token and re-reads the live
+ * user row on each request. A forged cookie gets a visitor as far as a page
+ * that immediately answers 401 and sends them back to sign in.
+ *
+ * Verifying here would mean holding the same AUTH_SECRET as the API, and a
+ * mismatch between the two silently signs everybody out — a failure that looks
+ * exactly like "sign-in is broken" and says nothing about its cause. Not
+ * sharing the secret removes that whole class of problem, at the cost of a
+ * redirect that a determined visitor can mislead into showing them a page that
+ * then refuses them.
  */
 
 /** Paths that require any signed-in user. */
@@ -36,36 +39,16 @@ function startsWithAny(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-interface ProxySession {
-  role: UserRole;
-  status: string;
-}
+/** The session's claims, or null when there is no usable cookie. */
+function readSession(request: NextRequest): SessionClaims | null {
+  for (const name of SESSION_COOKIE_NAMES) {
+    const value = request.cookies.get(name)?.value;
+    if (!value) continue;
 
-/** The session claims, or null when there is no valid token. */
-async function readSession(request: NextRequest): Promise<ProxySession | null> {
-  /**
-   * Either cookie name is accepted: the API picks one from the deployment's
-   * scheme, and the signature below is what actually decides. Reading only the
-   * name this process would have chosen is how a production storefront came to
-   * ignore every session its API had issued.
-   */
-  const token = SESSION_COOKIE_NAMES.map((name) => request.cookies.get(name)?.value).find(
-    (value): value is string => Boolean(value),
-  );
-  const secret = process.env.AUTH_SECRET;
-  if (!token || !secret) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
-      algorithms: ['HS256'],
-      issuer: SESSION_ISSUER,
-      audience: SESSION_AUDIENCE,
-    });
-    if (typeof payload.role !== 'string' || typeof payload.status !== 'string') return null;
-    return { role: payload.role as UserRole, status: payload.status };
-  } catch {
-    return null;
+    const claims = readUnverifiedClaims(value);
+    if (claims) return claims;
   }
+  return null;
 }
 
 function redirectToLogin(request: NextRequest): NextResponse {
@@ -75,9 +58,9 @@ function redirectToLogin(request: NextRequest): NextResponse {
   return NextResponse.redirect(url);
 }
 
-export default async function proxy(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const session = await readSession(request);
+  const session = readSession(request);
   const isStaff = Boolean(session && STAFF_ROLES.includes(session.role));
 
   // A session whose account was not active when issued is sent to the sign-in

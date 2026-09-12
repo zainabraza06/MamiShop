@@ -91,10 +91,20 @@ existing one.
 
 Two layers, and the redundancy is deliberate.
 
-| Layer                              | What it does                           | Trusted for authorisation |
-| ---------------------------------- | -------------------------------------- | ------------------------- |
-| `frontend/src/proxy.ts`            | Fast redirect based on the session JWT | **No**                    |
-| `backend/src/auth/current-user.ts` | Re-reads the live user row and decides | **Yes**                   |
+| Layer                              | What it does                                   | Trusted for authorisation |
+| ---------------------------------- | ---------------------------------------------- | ------------------------- |
+| `frontend/src/proxy.ts`            | Fast redirect, from the cookie's claims        | **No**                    |
+| `backend/src/auth/current-user.ts` | Verifies the token, re-reads the live user row | **Yes**                   |
+
+The proxy reads those claims **without checking the signature**, which follows
+from it not being trusted: every route behind it gets its data from the API,
+which does verify. A forged cookie reaches a page that answers 401 and bounces
+the visitor back to sign in.
+
+The alternative — verifying in the proxy — means the storefront and the API
+must hold an identical `AUTH_SECRET`, and any drift between them silently signs
+every visitor out while looking exactly like "sign-in is broken". That happened
+twice while deploying this. The storefront now holds no secret at all.
 
 A JWT carries the user's role _as of sign-in_. Demote a staff member at 09:00
 and their week-old token still claims `ADMIN`. So `requireStaff()` and
@@ -205,8 +215,8 @@ code by accident.
 In production a missing required secret **fails the boot** rather than serving a
 half-configured store.
 
-`AUTH_SECRET` is the one value both services need: the API signs sessions with
-it, the storefront's proxy verifies them.
+`AUTH_SECRET` belongs to the API alone. The storefront needs no secret: its only
+private setting is `API_URL`, the address it reaches the API on.
 
 **Logs redact.** `backend/src/lib/logger.ts` strips anything matching a known
 secret key name at any depth, because logs get exported to third-party tools. The

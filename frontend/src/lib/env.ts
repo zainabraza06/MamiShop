@@ -3,11 +3,10 @@ import { z } from 'zod';
 /**
  * Storefront environment.
  *
- * Only public configuration is validated here. The storefront holds two
- * server-side values of its own — where the API is (API_URL) and the secret
- * its proxy verifies session tokens with (AUTH_SECRET) — and every other
- * secret, from the database to payment keys, belongs to the API and never
- * reaches this workspace.
+ * Only public configuration is validated here. The storefront holds exactly one
+ * server-side value of its own — where the API is (API_URL) — and holds no
+ * secrets at all: the database, payment, email and signing credentials belong
+ * to the API and never reach this workspace.
  *
  * Next only inlines `NEXT_PUBLIC_*` values into the browser bundle, and only
  * when they are referenced by their full literal names, which is why they are

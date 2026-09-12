@@ -52,7 +52,58 @@ export function sessionCookieName(secureCookies: boolean): string {
  */
 export const SESSION_COOKIE_NAMES = ['__Host-momishop.session', 'momishop.session'] as const;
 
-/** The verified contents of a session token. */
+/**
+ * Reads a session token's claims **without verifying its signature**.
+ *
+ * For redirect decisions only, and deliberately so. The storefront's proxy
+ * sends an anonymous visitor to sign in and a customer away from /admin; none
+ * of that is a security decision, because every route behind it gets its data
+ * from the API, which verifies the signature and re-reads the live user row.
+ * A forged cookie therefore buys nothing: the page it reaches answers 401 and
+ * bounces the visitor straight back.
+ *
+ * What this buys is one less shared secret. Verifying here would mean the
+ * storefront and the API must hold the identical AUTH_SECRET, and when they
+ * drift — a trailing space, a value set after the last build — every signed-in
+ * visitor silently looks anonymous. That failure is invisible until someone
+ * tries to sign in, and it cost this deployment twice.
+ *
+ * Expiry is honoured, because an expired token is not a session by any
+ * reading. Anything malformed is treated as no session at all.
+ */
+export function readUnverifiedClaims(token: string, now = Date.now()): SessionClaims | null {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+
+  let payload: unknown;
+  try {
+    // JWT payloads are base64url; atob wants base64 with padding. Claims here
+    // are ids, roles and numbers, so the ASCII-only limitation never bites.
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    payload = JSON.parse(atob(base64 + '='.repeat((4 - (base64.length % 4)) % 4)));
+  } catch {
+    return null;
+  }
+
+  if (typeof payload !== 'object' || payload === null) return null;
+  const { sub, role, status, permissions, iat, exp } = payload as Record<string, unknown>;
+
+  if (typeof sub !== 'string' || sub.length === 0) return null;
+  if (typeof role !== 'string' || typeof status !== 'string') return null;
+  if (typeof iat !== 'number' || typeof exp !== 'number') return null;
+  if (exp * 1000 <= now) return null;
+
+  return {
+    sub,
+    role: role as UserRole,
+    status,
+    permissions: Array.isArray(permissions) ? permissions.filter((p) => typeof p === 'string') : [],
+    iat,
+    exp,
+  };
+}
+
+/** The contents of a session token. */
 export interface SessionClaims {
   /** User id. */
   sub: string;
