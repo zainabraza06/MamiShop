@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { checkRateLimit, enforceRateLimit, rateLimitHeaders } from '../src/lib/rate-limit';
+import {
+  checkRateLimit,
+  enforceRateLimit,
+  rateLimitHeaders,
+  releaseRateLimit,
+} from '../src/lib/rate-limit';
 import { RateLimitError } from '../src/lib/errors';
 import { __setStoreForTesting } from '../src/lib/redis';
 
@@ -52,6 +57,33 @@ describe('checkRateLimit', () => {
     for (let i = 0; i < 6; i++) await checkRateLimit('authLogin', 'ip-a');
     vi.setSystemTime(new Date('2026-06-10T12:06:00Z'));
     expect((await checkRateLimit('authLogin', 'ip-a')).ok).toBe(true);
+  });
+});
+
+describe('releaseRateLimit', () => {
+  it('hands a unit back, so five people behind one NAT can all sign in', async () => {
+    for (let i = 0; i < 5; i++) {
+      expect((await checkRateLimit('authLogin', 'ip-office')).ok).toBe(true);
+      await releaseRateLimit('authLogin', 'ip-office');
+    }
+
+    expect((await checkRateLimit('authLogin', 'ip-office')).ok).toBe(true);
+  });
+
+  it('refunds one unit and no more, so a known password buys no fresh budget', async () => {
+    for (let i = 0; i < 4; i++) await checkRateLimit('authLogin', 'ip-attacker');
+
+    // One success in the middle of a run of guesses.
+    await checkRateLimit('authLogin', 'ip-attacker');
+    await releaseRateLimit('authLogin', 'ip-attacker');
+
+    expect((await checkRateLimit('authLogin', 'ip-attacker')).ok).toBe(true);
+    expect((await checkRateLimit('authLogin', 'ip-attacker')).ok).toBe(false);
+  });
+
+  it('does nothing when the caller has spent nothing', async () => {
+    await releaseRateLimit('authLogin', 'ip-quiet');
+    expect((await checkRateLimit('authLogin', 'ip-quiet')).remaining).toBe(4);
   });
 });
 

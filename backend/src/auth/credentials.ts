@@ -3,7 +3,7 @@ import { loginSchema } from '@momishop/shared/validation';
 import { prisma } from '../lib/db';
 import { logger } from '../lib/logger';
 import { fakeVerify, verifyPassword } from '../lib/password';
-import { checkRateLimit } from '../lib/rate-limit';
+import { checkRateLimit, releaseRateLimit } from '../lib/rate-limit';
 
 /**
  * Email and password sign-in.
@@ -140,6 +140,9 @@ export async function authenticateWithPassword(
     where: { id: user.id },
     data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
   });
+
+  // The throttle exists to stop guessing; this caller did not guess.
+  await releaseRateLimit('authLogin', ctx.ipHash);
 
   await recordAttempt(email, ctx, true);
 

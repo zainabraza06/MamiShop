@@ -75,6 +75,31 @@ export async function checkRateLimit(
   return { ok, limit: rule.limit, remaining, retryAfterSeconds };
 }
 
+/**
+ * Hands one unit back after the caller turned out to be legitimate.
+ *
+ * Sign-in consumes its budget before the password can be checked, which means
+ * correct sign-ins count against the throttle too — five people behind one
+ * office NAT would lock each other out. Refunding a success leaves the policy
+ * where it belongs: five *wrong* guesses in five minutes.
+ *
+ * Only one unit is refunded, never the whole key, so knowing one valid
+ * password does not buy an attacker a fresh budget for guessing others.
+ */
+export async function releaseRateLimit(name: RateLimitName, identifier: string): Promise<void> {
+  const rule = RATE_LIMITS[name];
+  const window = Math.floor(Date.now() / 1000 / rule.windowSeconds);
+  const key = `rl:${name}:${identifier}:${window}`;
+
+  const count = await kv().get<number>(key);
+  if (typeof count !== 'number' || count <= 0) return;
+
+  const ttl = await kv().ttl(key);
+  if (ttl <= 0) return;
+
+  await kv().set(key, count - 1, ttl);
+}
+
 /** Throwing variant for use inside route handlers. */
 export async function enforceRateLimit(name: RateLimitName, identifier: string): Promise<void> {
   const result = await checkRateLimit(name, identifier);
