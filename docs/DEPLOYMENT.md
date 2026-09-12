@@ -175,15 +175,28 @@ resolved to an empty string.
 
 ### 4. Cron
 
-`frontend/vercel.json` registers two jobs against the storefront, which proxies
-them to the API. Vercel authenticates them with `CRON_SECRET` as a bearer token.
-If the API is hosted somewhere with its own scheduler, point that at the API
-directly instead and delete the block.
+`.github/workflows/cron.yml` calls the API's cron endpoints on a schedule,
+authenticating with `CRON_SECRET` as a bearer token.
 
 | Path                        | Schedule      | Job                    |
 | --------------------------- | ------------- | ---------------------- |
-| `/api/cron/jobs`            | every 2 min   | Drains the outbox      |
+| `/api/cron/jobs`            | every 5 min   | Drains the outbox      |
 | `/api/cron/abandoned-carts` | every 3 hours | Queues recovery emails |
+
+It needs two things on the repository: the variable `API_BASE_URL` (the API's
+public URL) and the secret `CRON_SECRET` (the same value the API has). Without
+them the workflow warns and skips rather than failing every five minutes.
+
+**Why not Vercel Cron.** It was, until Vercel's Hobby plan turned out to allow
+only daily schedules — and an outbox drained once a day means a customer's
+order confirmation sits unsent for hours. GitHub's scheduler is free at
+five-minute intervals, which is close enough to the original two.
+
+Its limits are worth knowing: runs are best-effort and can be delayed when
+GitHub is busy, and scheduled workflows are disabled automatically after 60
+days without repository activity. If the queue becomes load-bearing, move it to
+a **Render Cron Job** beside the API — same endpoint, same bearer token — or to
+Vercel Pro, which restores the original `vercel.json` block.
 
 ### 5. Uptime monitoring
 

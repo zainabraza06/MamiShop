@@ -1,17 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "regions": ["sin1"],
-  "crons": [
-    {
-      "path": "/api/cron/jobs",
-      "comment": "Drains the transactional outbox: order emails, SMS, invoices. Proxied to the API.",
-      "schedule": "*/2 * * * *"
-    },
-    {
-      "path": "/api/cron/abandoned-carts",
-      "comment": "Queues recovery emails for carts idle 4-72 hours. Proxied to the API.",
-      "schedule": "0 */3 * * *"
-    }
-  ]
+  "regions": ["sin1"]
 }

@@ -1,0 +1,79 @@
+name: Scheduled jobs
+
+# Drains the transactional outbox and sweeps abandoned carts by calling the
+# API's cron endpoints.
+#
+# These used to be Vercel Cron jobs, declared in frontend/vercel.json. Vercel's
+# Hobby plan allows only daily schedules, and draining the outbox once a day
+# would leave a customer's order confirmation unsent for hours — so the
+# schedule lives here instead, where five-minute intervals are free.
+#
+# Alternatives, if this becomes load-bearing: a Render Cron Job sitting beside
+# the API, or Vercel Pro and the original vercel.json block. GitHub's scheduler
+# is best-effort — runs can be delayed under load, and scheduled workflows are
+# disabled automatically after 60 days without repository activity.
+
+on:
+  schedule:
+    # Every 5 minutes: the outbox. GitHub's minimum interval is 5 minutes.
+    - cron: '*/5 * * * *'
+    # Every 3 hours: carts idle between 4 and 72 hours.
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Which task to run now
+        required: true
+        default: jobs
+        type: choice
+        options: [jobs, abandoned-carts]
+
+concurrency:
+  # A slow batch must not have the next tick pile up behind it. Jobs are claimed
+  # with FOR UPDATE SKIP LOCKED, so an overlap is safe — it is just wasteful.
+  group: scheduled-jobs
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Call the API
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Work out which task this run is for
+        id: task
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          MANUAL: ${{ inputs.task }}
+        run: |
+          if [ -n "$MANUAL" ]; then
+            echo "path=/api/cron/$MANUAL" >> "$GITHUB_OUTPUT"
+          elif [ "$SCHEDULE" = "0 */3 * * *" ]; then
+            echo "path=/api/cron/abandoned-carts" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=/api/cron/jobs" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run it
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$API_BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::warning::Skipped: set the API_BASE_URL variable and the CRON_SECRET secret."
+            exit 0
+          fi
+
+          # -f so a non-2xx is a failed run rather than a silent no-op: an
+          # outbox that has stopped draining should be visible, not guessed at.
+          RESPONSE=$(curl -fsS --max-time 120 -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "${API_BASE_URL}${{ steps.task.outputs.path }}")
+
+          echo "$RESPONSE"
+
+          # A failing job lands in the queue's DEAD state rather than failing
+          # this request, so surface it here too.
+          if echo "$RESPONSE" | grep -q '"failed":[1-9]'; then
+            echo "::warning::Some jobs failed; check the queue for DEAD rows."
+          fi
