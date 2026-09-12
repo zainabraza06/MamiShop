@@ -86,7 +86,7 @@ SELECT status, COUNT(*) FROM jobs GROUP BY status;
 
 If `PENDING` climbs steadily, either the cron is not firing (check Vercel's cron
 log and that `CRON_SECRET` matches) or a handler is timing out. Raise
-`BATCH_SIZE` in `src/app/api/cron/jobs/route.ts` only after confirming the
+`BATCH_SIZE` in `backend/src/routes/cron.ts` only after confirming the
 handlers are fast — a bigger batch that still times out just fails more work per
 run.
 
@@ -99,7 +99,7 @@ Sentry is wired into `next.config.mjs` behind `SENTRY_DSN` and tunnelled through
 config files are not yet added — see `docs/ROADMAP.md`.
 
 Structured JSON logs go to stdout, one object per line, queryable in Vercel's
-log drain. Secrets are redacted before the sink; see `src/lib/logger.ts`.
+log drain. Secrets are redacted before the sink; see `backend/src/lib/logger.ts`.
 
 Unhandled API errors return a `requestId` to the caller and log the full error
 against it, so a customer can quote a reference without us exposing a stack

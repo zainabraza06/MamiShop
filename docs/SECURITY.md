@@ -29,11 +29,26 @@ CDN's job).
 
 ---
 
+## The service boundary
+
+The API holds every secret and is the only thing that connects to the database.
+The storefront has the public configuration, the address of the API, and the
+signing secret it needs to verify a session cookie — nothing else. A bug in a
+React component cannot reach Postgres, because Prisma is not in the storefront's
+dependency tree at all.
+
+---
+
 ## Authentication
 
-**Password hashing** — bcrypt, cost 12 (`src/lib/password.ts`). High enough to
-make offline cracking expensive, low enough that a login does not monopolise a
-serverless invocation. Revisit the cost annually.
+**Password hashing** — bcrypt, cost 12 (`backend/src/lib/password.ts`). High
+enough to make offline cracking expensive, low enough that a login does not
+monopolise a request. Revisit the cost annually.
+
+The strength checker the registration form runs lives separately, in
+`shared/src/password-strength.ts`. That split is the fix for a real leak: when
+both lived in one module, importing the checker shipped bcrypt to every visitor
+of `/register`.
 
 **Account lockout** — 5 failed attempts locks the account for 15 minutes. This
 is per-account and complements the per-IP rate limit; together they stop both
@@ -55,9 +70,20 @@ retrying a password that is actually correct.
 register with your email"), keyed by account and date so repeated attempts send
 one message per day.
 
-**OAuth is re-checked separately.** Google sign-in never reaches `authorize()`,
-so the suspended-account check lives in the `signIn` callback too — otherwise a
-banned user walks straight back in through Google.
+**Sessions** are signed JWTs (HS256, keyed by `AUTH_SECRET`) in an httpOnly
+cookie, issued by the API. Verification pins the algorithm, issuer and audience,
+so a token declaring `alg: none`, one signed with another key, and one minted for
+a different purpose are all rejected. Claims are shape-checked before use.
+
+**Google sign-in** is the authorization-code flow with PKCE, finished by
+verifying Google's ID token against its published keys. The browser is bound to
+the attempt by a short-lived signed state cookie, so a callback whose `state`
+does not match is refused — that is what stops an attacker completing a sign-in
+in a victim's browser. An unverified Google email is rejected, a suspended
+account is refused here as well as at password sign-in, and an address that
+already has a password account is **never** linked automatically: whoever
+controls a Google account for that address would otherwise take over the
+existing one.
 
 ---
 
@@ -65,19 +91,20 @@ banned user walks straight back in through Google.
 
 Two layers, and the redundancy is deliberate.
 
-| Layer                   | What it does                           | Trusted for authorisation |
-| ----------------------- | -------------------------------------- | ------------------------- |
-| `src/proxy.ts`          | Fast redirect based on the session JWT | **No**                    |
-| `src/server/session.ts` | Re-reads the live user row and decides | **Yes**                   |
+| Layer                              | What it does                           | Trusted for authorisation |
+| ---------------------------------- | -------------------------------------- | ------------------------- |
+| `frontend/src/proxy.ts`            | Fast redirect based on the session JWT | **No**                    |
+| `backend/src/auth/current-user.ts` | Re-reads the live user row and decides | **Yes**                   |
 
 A JWT carries the user's role _as of sign-in_. Demote a staff member at 09:00
 and their week-old token still claims `ADMIN`. So `requireStaff()` and
-`requirePermission()` query the database. If `src/proxy.ts` were deleted the
-app would still be secure, only less pleasant to use — a matcher bug must not
-become a privilege escalation.
+`requirePermission()` query the database. If the proxy were deleted the store
+would still be secure, only less pleasant to use — a matcher bug must not become
+a privilege escalation. The proxy does not run on `/api` at all; the API
+authorises those requests itself.
 
 **Client-side role checks are for hiding UI only.** The admin nav filters by
-permission so staff do not see links they cannot open; every one of those pages
+permission so staff do not see links they cannot open; every admin endpoint
 re-checks server-side.
 
 **Privilege escalation is blocked by rank.** `canAssignRole()` only permits
@@ -86,17 +113,19 @@ including themselves — to `SUPER_ADMIN`.
 
 **IDOR** — `assertOwnershipOrStaff()` guards record access, and it reports
 failures as "not found" rather than "forbidden" so probing for valid ids returns
-nothing useful. Cart mutations are scoped to the caller's own cart, and a saved
-measurement profile is only honoured after confirming it belongs to the caller.
+nothing useful. Cart mutations are scoped to the caller's own cart, a saved
+measurement profile is only honoured after confirming it belongs to the caller,
+and the order confirmation returns an explicit allow-list of fields rather than
+the row.
 
 ---
 
 ## Input validation
 
 Every form and endpoint validates through a **shared Zod schema**
-(`src/lib/validation.ts`) imported by both the React form and the server
-handler. Because they are literally the same object they cannot drift — which is
-how "we validate on both sides" usually becomes "we validate on neither".
+(`shared/src/validation.ts`) imported by both the React form and the API. Because
+they are literally the same object they cannot drift — which is how "we validate
+on both sides" usually becomes "we validate on neither".
 
 The client copy is for fast feedback. **The server copy decides.** Measurements
 submitted to `/api/cart/items` are re-validated against the product's own sizing
@@ -122,9 +151,9 @@ takes no user input.
 
 ## Rate limiting
 
-Fixed-window, one `INCR` per check (`src/lib/rate-limit.ts`). A fixed window can
-allow up to 2× the limit across a boundary; that is an acceptable trade here,
-since the goal is stopping abuse rather than metering a paid API.
+Fixed-window, one `INCR` per check (`backend/src/lib/rate-limit.ts`). A fixed
+window can allow up to 2× the limit across a boundary; that is an acceptable
+trade here, since the goal is stopping abuse rather than metering a paid API.
 
 | Policy         | Limit | Window | Why                                      |
 | -------------- | ----- | ------ | ---------------------------------------- |
@@ -137,9 +166,13 @@ since the goal is stopping abuse rather than metering a paid API.
 Signed-in users are limited by user id rather than IP — limiting by IP punishes
 everyone behind the same office or mobile-carrier NAT.
 
-**Client IP is only trustworthy behind a proxy you control.** On Vercel the edge
-overwrites `x-forwarded-for`. On another host, terminate at a proxy that strips
-inbound values, or the header is spoofable.
+**Client IP is only trustworthy behind a proxy you control.** The API uses
+Express's `req.ip`, which honours `trust proxy`, so a forwarded address counts
+only when it arrives from a hop configured in `TRUST_PROXY`. Browser traffic
+reaches it through the storefront's rewrite, which passes the visitor's address
+along, and server-side calls forward it explicitly. Exposing the API directly to
+the internet without fixing `TRUST_PROXY` would let a client pick its own
+rate-limit bucket.
 
 ---
 
@@ -162,18 +195,23 @@ is the only live payment path.
 
 ## Secrets
 
-`src/lib/env.ts` validates at boot and splits the schema in two. Only
-`NEXT_PUBLIC_*` values are inlined into the browser bundle, and because nothing
-outside that module reads `process.env` for secrets, a secret cannot leak into
-client code by accident. `serverEnv()` throws if called in the browser.
+Each service validates its own environment at boot.
+`backend/src/lib/env.ts` covers the database, signing, payment, email and SMS
+credentials; `frontend/src/lib/env.ts` covers only public configuration. Nothing
+outside those modules reads `process.env` for a secret, and only `NEXT_PUBLIC_*`
+values are inlined into the browser bundle, so a secret cannot leak into client
+code by accident.
 
-In production a missing required secret **fails the deploy** rather than
-serving a half-configured store.
+In production a missing required secret **fails the boot** rather than serving a
+half-configured store.
 
-**Logs redact.** `src/lib/logger.ts` strips anything matching a known secret key
-name at any depth, because logs get exported to third-party tools. The audit log
-redacts the same set, plus raw gateway payloads, since it is widely readable
-inside the business and gets exported during investigations.
+`AUTH_SECRET` is the one value both services need: the API signs sessions with
+it, the storefront's proxy verifies them.
+
+**Logs redact.** `backend/src/lib/logger.ts` strips anything matching a known
+secret key name at any depth, because logs get exported to third-party tools. The
+audit log redacts the same set, plus raw gateway payloads, since it is widely
+readable inside the business and gets exported during investigations.
 
 **IPs are hashed before storage** (`hashIp`), salted with `AUTH_SECRET`. We need
 them for abuse detection; keeping them in the clear is a liability.
@@ -187,7 +225,7 @@ public URL.
 
 ## Transport and browser hardening
 
-Set in `next.config.mjs` and applied to every response:
+Set in `frontend/next.config.mjs` and applied to every page response:
 
 - **CSP** with `object-src 'none'`, `base-uri 'self'`, `frame-ancestors 'none'`,
   and an explicit allowlist per directive.
@@ -199,14 +237,24 @@ Set in `next.config.mjs` and applied to every response:
   denying camera, microphone and geolocation.
 - `poweredByHeader: false`.
 
-**Cookies** — session cookies are `httpOnly`, `sameSite=lax`, and `secure` in
-production with the `__Secure-` prefix so the browser rejects them over plain
-HTTP. The cart cookie is `httpOnly` too and carries an opaque random token, not
-a cart id that could be incremented into someone else's basket.
+The API sets its own headers with Helmet, marks every response `no-store` unless
+a route opts into caching, and does not advertise Express.
 
-**CSRF** — Auth.js issues and verifies its own token on every state-changing
-auth request. `sameSite=lax` covers the rest; mutations are JSON POSTs with a
-`Content-Type` that triggers preflight, which a cross-origin form cannot forge.
+**Cookies** — the session cookie is `httpOnly`, `sameSite=lax`, and in production
+`secure` with the `__Host-` prefix, which makes the browser refuse it unless it
+is host-only, path `/` and delivered over HTTPS — so no sibling subdomain can
+plant or overwrite it. The cart cookie is `httpOnly` too and carries an opaque
+random token, not a cart id that could be incremented into someone else's basket.
+
+**CSRF** — cookies are `SameSite=Lax`, which already keeps them off a cross-site
+form POST. The API adds a second check: a state-changing request whose `Origin`
+is not one it serves is refused, as is one that hides its origin but declares
+`Sec-Fetch-Site: cross-site`. Requests with no `Origin` at all are allowed
+through, because browsers always send it on a cross-origin POST — its absence
+means the request did not come from another site's page.
+
+Because the browser reaches the API through the storefront's own origin, none of
+this depends on CORS, and the cookies stay first-party.
 
 ---
 
@@ -232,6 +280,10 @@ Stated so they are decisions rather than oversights.
 - **Email is not verified before an account can order.** Deliberate — an
   unverified customer can still buy, because blocking checkout on an email
   round-trip costs more sales than it prevents fraud at this scale.
+- **Guest order numbers are the only key to a guest confirmation page.** They are
+  sequential, so the endpoint is rate limited and the page exposes no payment
+  detail. Requiring an email here would strand every guest; the richer tracking
+  page does require one.
 - **`'unsafe-inline'` in `script-src`.** Required by Next's inlined runtime;
   removing it means adopting nonces.
 - **No WAF.** Rate limiting is the only application-level abuse control.

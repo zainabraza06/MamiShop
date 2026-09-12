@@ -53,7 +53,7 @@ What is missing is the adapter behind that redirect:
 - **Easypaisa** — same shape, different field names and hash key.
 
 `next.config.mjs` already allowlists all three in `form-action`, and
-`src/lib/crypto.ts` has `hmacSha256Hex` and `safeEqual` for exactly this.
+`backend/src/lib/crypto.ts` has `hmacSha256Hex` and `safeEqual` for exactly this.
 
 **Do not ship card payments until the webhook is the only thing that marks an
 order paid.** A client-side "payment succeeded" callback is trivially forged.
@@ -65,11 +65,11 @@ screens under `/admin/products`, `/admin/orders`, `/admin/customers`,
 `/admin/returns`, `/admin/coupons`, `/admin/content`, `/admin/staff`,
 `/admin/settings` and `/admin/audit` are routed but not built. The server-side
 pieces they need already exist: `recordAudit`, `requirePermission`, the order
-state machine, and validation schemas for every entity in `src/lib/validation.ts`.
+state machine, and validation schemas for every entity in `shared/src/validation.ts`.
 
 ### Customer account area
 
-`/account` is protected by middleware and the layout, but the sub-pages
+`/account` is protected by the storefront proxy and the API, but the sub-pages
 (orders, measurement profiles, addresses, wishlist, returns, privacy/data
 export) are not built. The data layer is there.
 

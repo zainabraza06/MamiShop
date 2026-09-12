@@ -1,7 +1,36 @@
 # Deployment
 
-Target stack: Vercel (app), Neon or Supabase (PostgreSQL), Upstash (Redis),
-Cloudinary (media), Resend (email), Twilio (SMS).
+Two services deploy from this repository:
+
+| Service    | What it is       | Target                                            |
+| ---------- | ---------------- | ------------------------------------------------- |
+| Storefront | Next.js 16       | Vercel (project root directory: `frontend`)       |
+| API        | Express, Node 20 | Any Node host — Render, Railway, Fly, a container |
+
+Plus PostgreSQL (Neon or Supabase), Redis (Upstash), Cloudinary (media), Resend
+(email) and Twilio (SMS).
+
+---
+
+## How the two fit together
+
+The storefront proxies `/api/*` to the API, so customers only ever see one
+origin and cookies stay first-party. That means:
+
+- the storefront needs **`API_URL`**, the API's address as reached from the
+  storefront's servers;
+- both services need the **same `AUTH_SECRET`** — the API signs session tokens,
+  the storefront's proxy verifies them;
+- the API needs **`APP_URL`** (for email links and sign-in redirects) and
+  **`TRUST_PROXY`** set to match its hosting, or client IPs will be wrong and
+  rate limits will pool every visitor into one bucket;
+- the API needs `CORS_ORIGINS` **only** if a browser will call it directly on
+  its own domain. Through the storefront's rewrite, it does not.
+
+Deploy the API first and the storefront second: the API's changes are additive,
+so the old storefront keeps working against the new API, while a new storefront
+may depend on an endpoint the old API does not have. Roll back in the reverse
+order.
 
 ---
 
@@ -28,8 +57,8 @@ Create two databases — staging and production. Both need **two** connection
 strings:
 
 ```bash
-# Pooled, used by the running app. Serverless functions cannot hold a pool
-# across invocations, so they connect through PgBouncer.
+# Pooled, used by the running API. Serverless and autoscaled hosts cannot hold a
+# pool across instances, so they connect through PgBouncer.
 DATABASE_URL="postgresql://…?pgbouncer=true&connection_limit=1"
 
 # Direct, used by `prisma migrate`. Migrations take advisory locks and issue
@@ -41,8 +70,20 @@ Getting these the wrong way round produces migrations that appear to hang.
 
 ### 2. Secrets
 
-Set every variable from `.env.example` in the Vercel project, per environment.
-The app validates at boot and **fails the deploy** if a required one is missing.
+Set them per service, from `.env.example`. Each service validates at boot and
+**fails to start** if a required one is missing.
+
+| Variable                                                | API | Storefront |
+| ------------------------------------------------------- | --- | ---------- |
+| `DATABASE_URL`, `DIRECT_URL`                            | ✓   |            |
+| `AUTH_SECRET`                                           | ✓   | ✓          |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`                  | ✓   |            |
+| `APP_URL`, `API_PUBLIC_URL`, `TRUST_PROXY`              | ✓   |            |
+| `CRON_SECRET`                                           | ✓   |            |
+| Stripe, JazzCash, Easypaisa, Cloudinary, Resend, Twilio | ✓   |            |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`    | ✓   |            |
+| `API_URL`                                               |     | ✓          |
+| `NEXT_PUBLIC_*`                                         |     | ✓          |
 
 ```bash
 openssl rand -base64 32   # AUTH_SECRET
@@ -55,12 +96,16 @@ staging session token is valid in production.
 ### 3. GitHub secrets
 
 `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `STAGING_DIRECT_URL`,
-`PRODUCTION_DIRECT_URL`.
+`PRODUCTION_DIRECT_URL`, and `API_DEPLOY_HOOK_URL` — the deploy hook of whatever
+host runs the API. Without the last one the workflow warns and skips the API
+deploy rather than silently shipping only half the release.
 
 ### 4. Cron
 
-`vercel.json` registers two jobs. Vercel authenticates them with `CRON_SECRET`
-as a bearer token.
+`frontend/vercel.json` registers two jobs against the storefront, which proxies
+them to the API. Vercel authenticates them with `CRON_SECRET` as a bearer token.
+If the API is hosted somewhere with its own scheduler, point that at the API
+directly instead and delete the block.
 
 | Path                        | Schedule      | Job                    |
 | --------------------------- | ------------- | ---------------------- |
@@ -69,11 +114,14 @@ as a bearer token.
 
 ### 5. Uptime monitoring
 
-Point your monitor at `/api/health` and alert on a non-200.
+Point your monitor at the storefront's `/api/health` and alert on a non-200.
+Going through the storefront exercises both services and the rewrite between
+them in one check. Monitor the API's own `/api/health` too if it has a public
+address.
 
 The endpoint distinguishes hard from soft dependencies: a database failure
 returns **503** and should page someone; Redis being down returns **200** with
-`status: "degraded"`, because the app falls back to in-memory rate limiting and
+`status: "degraded"`, because the API falls back to in-memory rate limiting and
 uncached queries — slower but correct. Paging at 3am for a cache is how on-call
 rotations get ignored.
 
@@ -100,15 +148,20 @@ takes the site down for the length of the deploy.
 
 ### Commands
 
+All run from the repository root and delegate to the backend workspace, which
+owns `prisma/`.
+
 ```bash
-npx prisma migrate dev --name add_something   # develop
-npx prisma migrate deploy                     # CI / production
-npx prisma migrate status                     # what has been applied
+npm run db:migrate        # develop: create and apply
+npm run db:deploy         # CI / production: apply pending
+npm run db:check-drift    # fail if schema.prisma has no matching migration
 ```
 
 CI fails the build if `schema.prisma` has changes with no corresponding
-migration — the `migrations` job runs `prisma migrate diff --exit-code` against
-a scratch database.
+migration — the `migrations` job runs the same drift check against a scratch
+database. That check refuses to run unless `SHADOW_DATABASE_URL` is demonstrably
+a different database from `DATABASE_URL`, because Prisma **wipes** the shadow to
+replay history into it.
 
 ### Reversibility
 
@@ -120,13 +173,17 @@ contract-phase migration, confirm PITR covers the window you would need.
 
 ## Rollback
 
-**Code only** (the common case) — the previous build is still on Vercel:
+**Code only** (the common case) — roll the storefront back first, then the API:
 
 ```bash
-vercel rollback <previous-deployment-url>
+vercel rollback <previous-deployment-url>   # storefront
+# then redeploy the API's previous image or commit on its host
 ```
 
-Safe precisely because migrations are backward-compatible. The old code runs
+That order matters for the same reason the deploy order does: a new storefront
+may call an endpoint an older API lacks, so the storefront goes back first.
+
+Safe precisely because migrations are backward-compatible: the old code runs
 against the newer schema.
 
 **Code and schema** — much more serious:
@@ -163,8 +220,8 @@ Before the production gate:
 - [ ] CI green: quality, unit, e2e, migration-drift, audit
 - [ ] Migration reviewed and confirmed expand-phase
 - [ ] Staging smoke-tested: place a COD order end to end
-- [ ] `/api/health` returns 200 on staging
-- [ ] Environment variables set for anything new
+- [ ] `/api/health` returns 200 on staging, through the storefront
+- [ ] Environment variables set for anything new, on **both** services
 - [ ] Someone is available for the next hour
 
 After:
@@ -178,17 +235,21 @@ After:
 
 ## Scaling notes
 
-**Connection limits bite first.** Serverless scales function instances faster
-than Postgres accepts connections. This is what PgBouncer is for; if you see
-"too many connections", check that `DATABASE_URL` really is the pooled one.
+**Connection limits bite first.** Autoscaled instances scale faster than
+Postgres accepts connections. This is what PgBouncer is for; if you see "too
+many connections", check that `DATABASE_URL` really is the pooled one. Only the
+API connects, which makes the ceiling easier to reason about than it was when
+every rendered page held a connection.
 
-**Redis becomes mandatory above one instance.** Without it, rate limits are
-per-process, so the effective limit is `limit × instances`. The app warns at
+**Redis becomes mandatory above one API instance.** Without it, rate limits are
+per-process, so the effective limit is `limit × instances`. The API warns at
 boot in production.
 
 **The listing query is the one to watch.** It is indexed and cursor-paginated,
 but `count()` on every request gets expensive past ~50k products. Cache the
 count per filter, or drop to an estimate, before that.
 
-**ISR does the heavy lifting.** Product pages are static and revalidated hourly,
-so catalogue traffic mostly never reaches the database.
+**Catalogue reads are cached in the API**, not in the page layer: the category
+tree, homepage content and shipping rules come from Redis, and the public
+product endpoints are marked cacheable at the CDN. Storefront pages themselves
+are per-visitor and always render.

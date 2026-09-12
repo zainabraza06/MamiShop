@@ -39,12 +39,28 @@ jobs:
       # migration is written to be backward-compatible with the previous
       # release - see docs/DEPLOYMENT.md for the expand/contract rule.
       - name: Apply migrations to staging
-        run: npx prisma migrate deploy
+        run: npm run db:deploy
         env:
           DATABASE_URL: ${{ secrets.STAGING_DIRECT_URL }}
           DIRECT_URL: ${{ secrets.STAGING_DIRECT_URL }}
 
-      - name: Deploy
+      # The API ships first: its changes are additive, so the old storefront
+      # keeps working against the new API, while a new storefront may call an
+      # endpoint the old API does not have.
+      - name: Deploy the API
+        env:
+          HOOK: ${{ secrets.API_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::API_DEPLOY_HOOK_URL is not set; skipping the API deploy."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "API deploy triggered."
+
+      # The Vercel project's root directory is `frontend`, so this builds the
+      # storefront only.
+      - name: Deploy the storefront
         id: deploy
         run: |
           npm i -g vercel@latest
@@ -57,6 +73,8 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
+      # Through the storefront, so this exercises both services and the rewrite
+      # between them: a 200 here means the API answered and the database is up.
       - name: Smoke test the deployment
         run: |
           for i in $(seq 1 10); do
@@ -91,12 +109,23 @@ jobs:
           echo "see docs/DEPLOYMENT.md for the restore procedure."
 
       - name: Apply migrations to production
-        run: npx prisma migrate deploy
+        run: npm run db:deploy
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
           DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
 
-      - name: Deploy
+      - name: Deploy the API
+        env:
+          HOOK: ${{ secrets.API_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::API_DEPLOY_HOOK_URL is not set; skipping the API deploy."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "API deploy triggered."
+
+      - name: Deploy the storefront
         id: deploy
         run: |
           npm i -g vercel@latest

@@ -28,7 +28,7 @@ tests alongside it cover a few things axe structurally cannot.
 
 ### Colour and contrast
 
-Every foreground/background pair in `src/app/globals.css` meets AA, with the
+Every foreground/background pair in `frontend/src/app/globals.css` meets AA, with the
 measured ratio noted inline wherever a pairing is close enough that a future
 tweak could quietly break it. The palette is defined once as CSS variables so a
 change happens in one place rather than in forty components.

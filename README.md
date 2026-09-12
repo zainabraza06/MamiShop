@@ -4,7 +4,9 @@ Made-to-measure modest fashion e-commerce. Women's, girls' and boys' clothing,
 abayas and stoles — every stitched garment cut to the customer's own
 measurements rather than to a size chart.
 
-Built with Next.js 15 (App Router), TypeScript, Prisma and PostgreSQL.
+Two services in one repository: an **Express API** (TypeScript, Prisma,
+PostgreSQL) and a **Next.js 16 storefront** (App Router), with the domain logic
+they share in a third workspace.
 
 ---
 
@@ -16,36 +18,41 @@ line** at purchase. Editing a saved profile afterwards can never change a
 garment already being cut. That single constraint shapes the schema, the
 checkout transaction, the invoice and the returns policy.
 
-The measurement system lives in [`src/lib/measurements.ts`](src/lib/measurements.ts):
-five garment templates, per-field plausible ranges, plain-language instructions,
+The measurement system lives in
+[`shared/src/measurements.ts`](shared/src/measurements.ts): five garment
+templates, per-field plausible ranges, plain-language instructions,
 inch/centimetre conversion, and cross-field checks that catch the transpositions
 a per-field range cannot — a sleeve longer than the shirt it attaches to, a
-sleeve opening wider than its armhole.
+sleeve opening wider than its armhole. It is shared, so the browser and the API
+apply exactly the same rules.
 
 ---
 
 ## Quick start
 
 ```bash
-# 1. Dependencies
+# 1. Dependencies (npm workspaces: one install covers all three)
 npm install
 
 # 2. Environment — copy and fill in. Only DATABASE_URL and AUTH_SECRET are
 #    required to boot; every integration degrades gracefully without its key.
+#    Both services read this one file.
 cp .env.example .env
 
 # 3. Database (Docker). Postgres is required; Redis is optional.
 docker compose up -d postgres
 
 # 4. Schema and sample data
-npx prisma migrate dev
+npm run db:migrate
 npm run db:seed
 
-# 5. Run
+# 5. Run both services
 npm run dev
 ```
 
-Then open <http://localhost:3000>.
+The storefront is on <http://localhost:3000> and the API on
+<http://localhost:4000>. Open the storefront: it proxies `/api/*` to the API, so
+that is the only address you need.
 
 Seeded accounts:
 
@@ -55,87 +62,119 @@ Seeded accounts:
 | Staff    | `staff@momishop.pk`  | `StaffPass!2024` |
 | Customer | `ayesha@example.com` | `Customer!2024`  |
 
-Generate a real `AUTH_SECRET` with `openssl rand -base64 32`.
+Generate a real `AUTH_SECRET` with `openssl rand -base64 32`. Both services need
+the same one: the API signs session tokens with it and the storefront's proxy
+verifies them.
 
 ---
 
 ## Scripts
 
-| Command                 | What it does                                    |
-| ----------------------- | ----------------------------------------------- |
-| `npm run dev`           | Development server                              |
-| `npm run build`         | Generate the Prisma client, then build          |
-| `npm run typecheck`     | `tsc --noEmit`                                  |
-| `npm run lint`          | ESLint (flat config)                            |
-| `npm run format`        | Prettier write                                  |
-| `npm test`              | Unit and integration tests (Vitest)             |
-| `npm run test:coverage` | Tests with coverage thresholds                  |
-| `npm run test:e2e`      | End-to-end and accessibility tests (Playwright) |
-| `npm run db:migrate`    | Create and apply a migration                    |
-| `npm run db:deploy`     | Apply pending migrations (CI/production)        |
-| `npm run db:seed`       | Idempotent seed                                 |
-| `npm run db:studio`     | Prisma Studio                                   |
+Run from the repository root. Anything workspace-specific also works with
+`-w @momishop/backend` (or `frontend`, `shared`).
+
+| Command                 | What it does                                      |
+| ----------------------- | ------------------------------------------------- |
+| `npm run dev`           | API and storefront together, output prefixed      |
+| `npm run dev:api`       | API only                                          |
+| `npm run dev:web`       | Storefront only                                   |
+| `npm run build`         | Build both services                               |
+| `npm run typecheck`     | `tsc --noEmit` in every workspace                 |
+| `npm run lint`          | ESLint (flat config, whole repository)            |
+| `npm run format`        | Prettier write                                    |
+| `npm test`              | Unit tests in every workspace                     |
+| `npm run test:coverage` | Tests with per-workspace coverage thresholds      |
+| `npm run test:e2e`      | Playwright — starts both services and drives them |
+| `npm run db:migrate`    | Create and apply a migration                      |
+| `npm run db:deploy`     | Apply pending migrations (CI/production)          |
+| `npm run db:seed`       | Idempotent seed                                   |
+| `npm run db:studio`     | Prisma Studio                                     |
 
 ---
 
 ## Architecture
 
 ```
-src/
-  app/
-    (storefront)/      Customer-facing pages
-      products/
-        (list)/        Listing + its loading skeleton  ← route group, see note
-        [slug]/        Product detail (ISR)
-    (auth)/            Sign-in and registration
-    admin/             Staff dashboard
-    api/               Route handlers
-  components/
-    ui/                Primitives (button, input, dialog, …)
-    measurements/      The measurement form and its SVG guide
-    product/ cart/ checkout/ admin/ layout/
-  lib/                 Pure, testable domain logic — no I/O
-  server/              Data access, transactions, jobs, email, PDF
-prisma/                Schema, migrations, seed
-tests/
-  unit/                Vitest — domain logic
-  e2e/                 Playwright — critical path + axe audit
+shared/          @momishop/shared — pure domain logic and the API contract
+  src/           money, pricing, coupons, shipping, measurements, validation,
+                 RBAC, the order state machine, api-types, session-contract
+
+backend/         @momishop/backend — the Express API
+  src/
+    routes/      HTTP endpoints, one file per area
+    services/    Catalogue, cart, checkout, jobs, email, SMS, invoices
+    auth/        Sessions, password and Google sign-in, live-row guards
+    http/        Error mapping, validation, rate limiting, CSRF guard
+    lib/         Prisma client, Redis, cache, logger, crypto, env
+  prisma/        Schema, migrations, seed
+
+frontend/        @momishop/frontend — the Next.js storefront and admin
+  src/
+    app/         Routes and pages
+    components/  UI, measurement form, product, cart, checkout, admin
+    lib/         The API client, `cn`, public env
+    proxy.ts     Session-aware redirects
+  tests/e2e/     Playwright — critical path + axe audit
 ```
+
+### Why two services
+
+The storefront renders and the API decides. Splitting them means the browser
+bundle cannot import a module that reaches the database, the API can be scaled
+or deployed on its own, and the same API serves anything else later — a mobile
+app, a partner integration — without going through Next.
+
+The cost is a network hop and two deploy targets. It is paid back by the
+boundary being enforced by the module graph rather than by discipline.
 
 ### Layering rule
 
-`src/lib/**` is pure: no database, no network, no clock. Pricing, coupon
+`shared/**` is pure: no database, no network, no clock. Pricing, coupon
 eligibility, measurement validation, shipping-zone resolution and the order
 state machine all take their inputs as arguments. That is what makes them
-exhaustively testable, and it means the checkout API and the admin's
-manual-order screen compute identical totals from identical inputs.
+exhaustively testable, and it is why the checkout endpoint and the browser
+compute identical totals from identical inputs.
 
-`src/server/**` owns I/O — Prisma, transactions, email, PDF, jobs.
+`backend/src/services/**` owns I/O — Prisma, transactions, email, PDF, jobs.
+`frontend/**` owns rendering, and reaches data only through the API.
+
+### How the storefront talks to the API
+
+Server components call the API directly through
+[`frontend/src/lib/api.ts`](frontend/src/lib/api.ts), forwarding the visitor's
+cookies and address so the API sees the request as it would from the browser.
+
+The browser calls `/api/*` on the storefront's own origin, which Next rewrites
+to the API. Session and cart cookies therefore stay first-party, `SameSite=Lax`
+protects them without exceptions, and no CORS is involved.
 
 ### Money
 
 Every amount is an **integer in minor units** (paisa). Floating point is never
-used for money. `src/lib/money.ts` has the arithmetic, including `allocate()`,
-which apportions a discount across lines without losing or inventing a paisa.
+used for money. [`shared/src/money.ts`](shared/src/money.ts) has the arithmetic,
+including `allocate()`, which apportions a discount across lines without losing
+or inventing a paisa.
 
 ### Two-layer authorisation
 
-`src/proxy.ts` gives a fast redirect from the session JWT.
-`src/server/session.ts` **decides**, by re-reading the live user row.
+The API issues a session as a signed JWT in an httpOnly cookie.
+`frontend/src/proxy.ts` verifies it for a fast redirect; the API's
+`requireStaff()` / `requirePermission()` **decide**, by re-reading the live user
+row.
 
 The distinction matters: a JWT carries the role as of sign-in, so a staff member
 demoted five minutes ago still presents an `ADMIN` token. Deleting the proxy
-would leave the app secure, only less pleasant to use. That
-redundancy is deliberate — a matcher bug should not become a privilege
-escalation.
+would leave the store secure, only less pleasant to use. That redundancy is
+deliberate — a matcher bug should not become a privilege escalation.
 
 ### Background work
 
 A transactional outbox, not an in-memory queue. Jobs are rows written in the
-**same transaction** as the business change, drained by `/api/cron/jobs`. A
-crash between "order committed" and "email queued" is therefore impossible, and
-a rolled-back order cannot send a confirmation. Workers claim batches with
-`FOR UPDATE SKIP LOCKED`, so overlapping cron runs never double-send.
+**same transaction** as the business change, drained by the API's
+`/api/cron/jobs`. A crash between "order committed" and "email queued" is
+therefore impossible, and a rolled-back order cannot send a confirmation.
+Workers claim batches with `FOR UPDATE SKIP LOCKED`, so overlapping cron runs
+never double-send.
 
 Delivery is at-least-once, so **every handler must be idempotent**.
 
@@ -145,41 +184,47 @@ Delivery is at-least-once, so **every handler must be idempotent**.
 
 **`products/(list)/loading.tsx` placement is load-bearing.** A `loading.tsx` at
 `products/` would wrap `products/[slug]` in the same Suspense boundary. The
-product page suspends on its database query, so Next flushes 200 response
-headers before reaching `notFound()` — and every dead product URL answers 200
-with 404 content. That is a soft 404, which search engines index as a real page.
-The route group scopes the boundary to the listing without changing the URL.
-This was caught by an end-to-end test asserting the status code, not the body.
+product page suspends on its data, so Next flushes 200 response headers before
+reaching `notFound()` — and every dead product URL answers 200 with 404 content.
+That is a soft 404, which search engines index as a real page. The route group
+scopes the boundary to the listing without changing the URL. This was caught by
+an end-to-end test asserting the status code, not the body.
 
 **Cart lines are compared by measurement _content_, not key order.** Postgres
 `jsonb` does not preserve insertion order, so `JSON.stringify` comparison made
 "add the same abaya twice" create two lines instead of incrementing one. See
-`src/lib/canonical-json.ts`.
+[`shared/src/canonical-json.ts`](shared/src/canonical-json.ts).
 
 **Order items snapshot everything.** Product name, price, image and measurements
 are copied onto `OrderItem` at purchase. The catalogue can be edited or archived
 and a year-old invoice still renders identically.
+
+**A new cart always gets a fresh token.** Reusing the cookie's token after
+checkout collides with the converted cart's unique token, which is what stopped
+a guest starting a second bag.
 
 ---
 
 ## Testing
 
 ```bash
-npm test                 # domain logic
-npm run test:e2e         # critical path + accessibility
+npm test                 # domain logic, API, storefront
+npm run test:e2e         # critical path + accessibility, against both services
 ```
 
 Unit tests cover the logic that is expensive to get wrong: money arithmetic,
 pricing and discount apportionment, coupon eligibility, measurement validation,
-shipping-zone resolution and the order state machine.
+shipping-zone resolution and the order state machine. The API's tests drive the
+real Express app through supertest with the database mocked, so they need no
+Postgres.
 
-End-to-end tests run against a real build and a seeded database. They assert
-**status codes and accessible names**, not CSS classes — a test that breaks when
-a class is renamed is noise, one that breaks when a button loses its accessible
-name has found a real regression.
+End-to-end tests run against real builds of both services and a seeded database.
+They assert **status codes and accessible names**, not CSS classes — a test that
+breaks when a class is renamed is noise, one that breaks when a button loses its
+accessible name has found a real regression.
 
-`tests/e2e/accessibility.spec.ts` runs axe-core against every key page. axe
-catches roughly a third of WCAG issues, so it is a floor rather than a
+`frontend/tests/e2e/accessibility.spec.ts` runs axe-core against every key page.
+axe catches roughly a third of WCAG issues, so it is a floor rather than a
 certificate; the keyboard tests alongside it cover things axe structurally
 cannot.
 
@@ -192,6 +237,8 @@ the expand/contract migration rule, rollback, and the backup/restore procedure.
 
 Short version: migrations run **before** the new code goes live, which is only
 safe because every migration is backward-compatible with the previous release.
+The API and the storefront deploy separately, and the storefront needs
+`API_URL` pointing at the API.
 
 ---
 
