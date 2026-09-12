@@ -2,13 +2,19 @@
 
 Two services deploy from this repository:
 
-| Service    | What it is       | Target                                            |
-| ---------- | ---------------- | ------------------------------------------------- |
-| Storefront | Next.js 16       | Vercel (project root directory: `frontend`)       |
-| API        | Express, Node 20 | Any Node host — Render, Railway, Fly, a container |
+| Service    | What it is       | Target                                         |
+| ---------- | ---------------- | ---------------------------------------------- |
+| Storefront | Next.js 16       | Vercel — project root directory `frontend`     |
+| API        | Express, Node 20 | Render — Docker, defined by `render.yaml`      |
+| Database   | PostgreSQL 16    | Render Postgres, created by the same blueprint |
 
-Plus PostgreSQL (Neon or Supabase), Redis (Upstash), Cloudinary (media), Resend
-(email) and Twilio (SMS).
+Optionally Redis (Upstash), Cloudinary (media), Resend (email) and Twilio
+(SMS). Each degrades gracefully when unset: email and SMS log instead of
+sending, and without Redis the API falls back to per-process rate limiting.
+
+Nothing about the code is Render- or Vercel-specific. The API is a container
+that needs a Postgres URL and a port, so any host that runs one will do; the
+storefront is a stock Next.js app.
 
 ---
 
@@ -32,6 +38,12 @@ so the old storefront keeps working against the new API, while a new storefront
 may depend on an endpoint the old API does not have. Roll back in the reverse
 order.
 
+**Keep them in the same region.** The storefront calls the API while rendering
+every page, so a cross-region hop is paid on each one. Render's nearest region
+to Pakistan is Singapore, so `frontend/vercel.json` pins the storefront's
+functions to `sin1` to sit beside it. Moving the API elsewhere means moving
+that too.
+
 ---
 
 ## Environments
@@ -51,22 +63,61 @@ customers without a human saying yes.
 
 ## First-time setup
 
-### 1. Database
+### 1. The API and its database, on Render
 
-Create two databases — staging and production. Both need **two** connection
-strings:
+In Render: **New → Blueprint**, point it at this repository. `render.yaml`
+creates two things and wires the connection string between them:
+
+- `momishop-db` — Postgres 16, Singapore
+- `momishop-api` — the container built from `backend/Dockerfile`, health-checked
+  at `/api/health`, with auto-deploy **off** (the GitHub workflow triggers it
+  after migrations)
+
+Then, in the service's **Environment** tab, fill in the values marked
+`sync: false`:
+
+| Variable         | Value                                                         |
+| ---------------- | ------------------------------------------------------------- |
+| `AUTH_SECRET`    | `openssl rand -base64 32` — the storefront needs the same one |
+| `APP_URL`        | the storefront's URL, e.g. `https://momishop.vercel.app`      |
+| `API_PUBLIC_URL` | this service's URL, e.g. `https://momishop-api.onrender.com`  |
+| `CRON_SECRET`    | `openssl rand -hex 32`                                        |
+
+Finally, **Settings → Deploy Hook**: copy that URL into the GitHub secret
+`API_DEPLOY_HOOK_URL`.
+
+On the free plan the service sleeps after about fifteen minutes idle, so the
+first request afterwards waits for a cold start, and Render's free Postgres is
+time-limited — check the current terms and move to a paid instance before real
+orders depend on it.
+
+**If you use a pooled Postgres instead** (Neon, Supabase, or Render with
+PgBouncer in front), the two URLs differ and both are needed:
 
 ```bash
-# Pooled, used by the running API. Serverless and autoscaled hosts cannot hold a
-# pool across instances, so they connect through PgBouncer.
+# Pooled, used by the running API.
 DATABASE_URL="postgresql://…?pgbouncer=true&connection_limit=1"
 
-# Direct, used by `prisma migrate`. Migrations take advisory locks and issue
+# Direct, used by `prisma migrate`: migrations take advisory locks and issue
 # DDL, neither of which survives a transaction-mode pooler.
 DIRECT_URL="postgresql://…"
 ```
 
-Getting these the wrong way round produces migrations that appear to hang.
+Getting those the wrong way round produces migrations that appear to hang.
+
+### 1b. The storefront, on Vercel
+
+Import the repository, then set:
+
+- **Root Directory** `frontend` — and leave "Include files outside the root
+  directory" on, because the build compiles `shared/` and installs from the
+  root lockfile.
+- **Environment variables**: `API_URL` (the Render service URL), `AUTH_SECRET`
+  (the same value as the API), and the `NEXT_PUBLIC_*` set from `.env.example`.
+
+`API_URL` is what the storefront's server uses to reach the API; browsers never
+see it, because they call `/api/*` on the storefront's own origin and Next
+rewrites it.
 
 ### 2. Secrets
 
@@ -95,10 +146,25 @@ staging session token is valid in production.
 
 ### 3. GitHub secrets
 
-`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `STAGING_DIRECT_URL`,
-`PRODUCTION_DIRECT_URL`, and `API_DEPLOY_HOOK_URL` — the deploy hook of whatever
-host runs the API. Without the last one the workflow warns and skips the API
-deploy rather than silently shipping only half the release.
+| Secret                                               | Where it comes from                                 |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | Vercel account settings and the project's `.vercel` |
+| `PRODUCTION_DIRECT_URL`                              | Render database → **External** connection string    |
+| `STAGING_DIRECT_URL`                                 | the staging database, if you run one                |
+| `API_DEPLOY_HOOK_URL`                                | Render service → Settings → Deploy Hook             |
+
+The migration step runs from a GitHub runner, outside Render's network, so it
+needs the **external** connection string — the internal one only resolves
+between Render services.
+
+Without `API_DEPLOY_HOOK_URL` the workflow warns and skips the API deploy
+rather than silently shipping only half the release. With no secrets at all it
+skips the whole job, so a repository that is not deploying anywhere yet does
+not show a permanently red workflow.
+
+Running a single environment is fine to start: leave `STAGING_DIRECT_URL`
+unset, the staging job skips itself, and production still runs behind its
+approval gate.
 
 Until the database and Vercel secrets are set, the deploy workflow **skips with
 a warning naming what is missing** rather than failing. That keeps a repository
