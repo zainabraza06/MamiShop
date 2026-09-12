@@ -296,7 +296,64 @@ export interface OrderConfirmation {
   }[];
 }
 
+/** An editorial page: privacy policy, terms, returns, delivery. */
+export interface CmsPage {
+  slug: string;
+  title: string;
+  /** Plain text, blank-line separated. Never HTML — it is rendered as text. */
+  body: string;
+  metaTitle: string | null;
+  metaDescription: string | null;
+  updatedAt: IsoDateString;
+}
+
+/** What the tracking page shows, for someone who proved both order number and email. */
+export interface OrderTracking {
+  orderNumber: string;
+  status: OrderStatus;
+  placedAt: IsoDateString;
+  currency: string;
+  grandTotal: number;
+  courier: string | null;
+  trackingNumber: string | null;
+  items: { id: string; quantity: number; productName: string; variantName: string | null }[];
+  events: {
+    id: string;
+    status: OrderStatus;
+    title: string;
+    description: string | null;
+    createdAt: IsoDateString;
+  }[];
+}
+
 // ── Accounts and admin ─────────────────────────────────────────────────────
+
+export interface AccountOverview {
+  user: { name: string | null; email: string };
+  orders: {
+    orderNumber: string;
+    status: OrderStatus;
+    placedAt: IsoDateString;
+    grandTotal: number;
+    currency: string;
+  }[];
+  wishlistCount: number;
+  measurementProfileCount: number;
+  loyaltyBalance: number;
+}
+
+export type DataRequestKind = 'EXPORT' | 'DELETE';
+export type DataRequestStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'REJECTED';
+
+export interface DataRequest {
+  id: string;
+  kind: DataRequestKind;
+  status: DataRequestStatus;
+  createdAt: IsoDateString;
+  completedAt: IsoDateString | null;
+  downloadUrl: string | null;
+  expiresAt: IsoDateString | null;
+}
 
 export interface SessionUser {
   id: string;

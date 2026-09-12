@@ -29,6 +29,50 @@ export async function getOrderForViewer(orderNumber: string, viewerId: string | 
 type ViewableOrder = NonNullable<Awaited<ReturnType<typeof getOrderForViewer>>>;
 
 /**
+ * The tracking page's view of an order.
+ *
+ * Reached with the order number *and* the email it was placed with, so it may
+ * show a little more than the confirmation page — but still no payment detail,
+ * and only the events marked public.
+ */
+export function orderTrackingView(
+  order: ViewableOrder & {
+    courier: string | null;
+    trackingNumber: string | null;
+    events: {
+      id: string;
+      status: string;
+      title: string;
+      description: string | null;
+      createdAt: Date;
+    }[];
+  },
+) {
+  return {
+    orderNumber: order.orderNumber,
+    status: order.status,
+    placedAt: order.placedAt,
+    currency: order.currency,
+    grandTotal: order.grandTotal,
+    courier: order.courier,
+    trackingNumber: order.trackingNumber,
+    items: order.items.map((item) => ({
+      id: item.id,
+      quantity: item.quantity,
+      productName: item.productName,
+      variantName: item.variantName,
+    })),
+    events: order.events.map((event) => ({
+      id: event.id,
+      status: event.status,
+      title: event.title,
+      description: event.description,
+      createdAt: event.createdAt,
+    })),
+  };
+}
+
+/**
  * The confirmation page's view of an order.
  *
  * An explicit allow-list rather than the row itself, so a column added to the

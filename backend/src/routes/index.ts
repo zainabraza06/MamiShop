@@ -1,13 +1,16 @@
 import { Router } from 'express';
+import { accountRouter } from './account';
 import { adminRouter } from './admin';
 import { authRouter } from './auth';
 import { cartRouter } from './cart';
 import { catalogueRouter } from './catalogue';
 import { checkoutRouter } from './checkout';
+import { contactRouter } from './contact';
 import { cronRouter } from './cron';
 import { healthRouter } from './health';
 import { newsletterRouter } from './newsletter';
 import { ordersRouter } from './orders';
+import { pagesRouter } from './pages';
 import { storefrontRouter } from './storefront';
 import { wishlistRouter } from './wishlist';
 
@@ -18,11 +21,14 @@ apiRouter.use(
   healthRouter,
   storefrontRouter,
   catalogueRouter,
+  pagesRouter,
   cartRouter,
   checkoutRouter,
   ordersRouter,
   authRouter,
+  accountRouter,
   newsletterRouter,
+  contactRouter,
   wishlistRouter,
   adminRouter,
   cronRouter,

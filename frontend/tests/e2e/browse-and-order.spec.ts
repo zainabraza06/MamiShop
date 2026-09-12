@@ -215,6 +215,72 @@ test.describe('authorisation', () => {
   });
 });
 
+test.describe('help and policy pages', () => {
+  /**
+   * The footer and help menu were written before the pages they link to, so
+   * every one of them 404'd: how to measure, tracking, returns, delivery,
+   * contact, the policies and the data page. Crawling the real links keeps a
+   * new one from shipping ahead of its page.
+   */
+  test('every link in the footer resolves', async ({ page }) => {
+    await page.goto('/');
+
+    const hrefs = await page
+      .locator('footer a')
+      .evaluateAll((links) =>
+        Array.from(
+          new Set(
+            links
+              .map((link) => link.getAttribute('href') ?? '')
+              .filter((href) => href.startsWith('/')),
+          ),
+        ),
+      );
+
+    // Guards against the links themselves disappearing and the test passing.
+    expect(hrefs.length).toBeGreaterThan(8);
+
+    for (const href of hrefs) {
+      const response = await page.request.get(href);
+      expect(response.status(), `${href} should not be missing`).toBeLessThan(400);
+    }
+  });
+
+  test('the measuring guide documents the ranges the order form enforces', async ({ page }) => {
+    await page.goto('/measuring-guide');
+
+    await expect(page.getByRole('heading', { name: /how to measure/i })).toBeVisible();
+    // Rendered from the shared templates, so a field cannot exist undocumented.
+    // Level 2 is the template's own heading; its field groups are level 3.
+    await expect(page.getByRole('heading', { name: 'Abaya', exact: true, level: 2 })).toBeVisible();
+    await expect(page.getByText(/Abaya length/).first()).toBeVisible();
+  });
+
+  test('a policy page renders its content from the database', async ({ page }) => {
+    await page.goto('/pages/returns-policy');
+
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(/returns/i);
+    await expect(page.getByText(/alter or remake/i)).toBeVisible();
+  });
+
+  test('an unknown policy page is a true 404', async ({ page }) => {
+    const response = await page.goto('/pages/no-such-policy');
+    expect(response?.status()).toBe(404);
+  });
+
+  test('tracking refuses an order number without the matching email', async ({ page }) => {
+    await page.goto('/track-order');
+
+    // Scoped to <main>: the footer's newsletter signup has an email field too.
+    const form = page.locator('#main-content');
+    await form.getByRole('textbox', { name: /^Order number/ }).fill('MS-2026-000001');
+    await form.getByRole('textbox', { name: /^Email/ }).fill('not-the-buyer@example.com');
+    await form.getByRole('button', { name: /track my order/i }).click();
+
+    await expect(form.getByRole('alert')).toContainText(/could not find an order/i);
+  });
+});
+
 test.describe('operational endpoints', () => {
   test('health reports the database as a hard dependency', async ({ request }) => {
     const response = await request.get('/api/health');

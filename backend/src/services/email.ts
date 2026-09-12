@@ -362,3 +362,52 @@ export function duplicateRegistrationEmail(data: { customerName: string }): {
     text: `Someone tried to register with your email. You already have an account, so nothing changed.\n\nSign in: ${absoluteUrl('/login')}`,
   };
 }
+
+/**
+ * A contact-form enquiry, sent to the shop rather than to a customer.
+ *
+ * The customer's address goes in `replyTo` (see the route) so answering is one
+ * click, and every value is escaped: the message is arbitrary text from a form,
+ * and this template builds raw HTML.
+ */
+export function contactEnquiryEmail(data: {
+  name: string;
+  email: string;
+  phone: string | null;
+  orderNumber: string | null;
+  subject: string;
+  message: string;
+}): { subject: string; html: string; text: string } {
+  const detail = (label: string, value: string) =>
+    `<tr>
+      <td style="padding:4px 16px 4px 0;font-size:13px;color:#6B635D;white-space:nowrap;">${escapeHtml(label)}</td>
+      <td style="padding:4px 0;font-size:14px;">${escapeHtml(value)}</td>
+    </tr>`;
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:22px;">${escapeHtml(data.subject)}</h1>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+      ${detail('From', data.name)}
+      ${detail('Email', data.email)}
+      ${data.phone ? detail('Phone', data.phone) : ''}
+      ${data.orderNumber ? detail('Order', data.orderNumber) : ''}
+    </table>
+
+    <p style="margin:0;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(data.message)}</p>
+  `;
+
+  return {
+    subject: `Enquiry: ${data.subject}`,
+    html: shell(content, `${data.name} sent a message through the contact form.`),
+    text: [
+      `From: ${data.name} <${data.email}>`,
+      data.phone ? `Phone: ${data.phone}` : null,
+      data.orderNumber ? `Order: ${data.orderNumber}` : null,
+      '',
+      data.message,
+    ]
+      .filter((line) => line !== null)
+      .join('\n'),
+  };
+}
