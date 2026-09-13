@@ -504,6 +504,37 @@ test.describe('admin', () => {
       if (created) await page.request.delete(`/api/admin/filters/${created.id}`);
     }
   });
+  test('an admin can create a coupon and find it in the list', async ({ page }, testInfo) => {
+    const signIn = await page.request.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(signIn.status()).toBe(200);
+
+    const code = `E2E${Date.now()}${testInfo.parallelIndex}`;
+    const main = page.locator('#main-content');
+
+    try {
+      await page.goto('/admin/coupons/new');
+      // Typed in lower case on purpose: codes are stored in capitals.
+      await main.getByRole('textbox', { name: /^Code/ }).fill(code.toLowerCase());
+      await main.getByRole('textbox', { name: /^Percent off/ }).fill('10');
+      await main.getByRole('button', { name: 'Create coupon' }).click();
+
+      await expect(main.getByRole('heading', { level: 1, name: new RegExp(code) })).toBeVisible();
+
+      await page.goto(`/admin/coupons?q=${code}`);
+      await expect(main.getByRole('link', { name: code })).toBeVisible();
+      await expect(main.getByText('10% off')).toBeVisible();
+    } finally {
+      const list = await page.request.get(`/api/admin/coupons?q=${code}`);
+      const { items } = (await list.json()) as { items: { id: string; code: string }[] };
+      const created = items.find((coupon) => coupon.code === code);
+      if (created) await page.request.delete(`/api/admin/coupons/${created.id}`);
+    }
+  });
 });
 
 test.describe('operational endpoints', () => {

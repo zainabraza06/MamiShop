@@ -605,6 +605,37 @@ export interface AdminCategory {
   productCount: number;
 }
 
+// ── Admin: coupons ─────────────────────────────────────────────────────────
+
+export type CouponType = 'PERCENTAGE' | 'FIXED_AMOUNT' | 'FREE_SHIPPING';
+
+export interface AdminCoupon {
+  id: string;
+  code: string;
+  type: CouponType;
+  /** Percent (1-100) for PERCENTAGE, minor units for FIXED_AMOUNT. */
+  value: number;
+  maxDiscount: number | null;
+  minOrderSubtotal: number;
+  usageLimit: number | null;
+  usageLimitPerUser: number | null;
+  usedCount: number;
+  appliesToCategoryIds: string[];
+  appliesToProductIds: string[];
+  firstOrderOnly: boolean;
+  description: string | null;
+  isActive: boolean;
+  startsAt: IsoDateString | null;
+  endsAt: IsoDateString | null;
+  createdAt: IsoDateString;
+  orderCount: number;
+}
+
+export interface AdminCouponList {
+  items: AdminCoupon[];
+  total: number;
+}
+
 // ── Admin: customers ───────────────────────────────────────────────────────
 
 export type CustomerStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';

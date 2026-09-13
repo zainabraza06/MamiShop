@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { accountRouter } from './account';
 import { adminRouter } from './admin';
 import { adminCatalogueRouter } from './admin-catalogue';
+import { adminCouponsRouter } from './admin-coupons';
 import { adminCustomersRouter } from './admin-customers';
 import { adminModerationRouter } from './admin-moderation';
 import { adminOrdersRouter } from './admin-orders';
@@ -39,5 +40,6 @@ apiRouter.use(
   adminModerationRouter,
   adminCatalogueRouter,
   adminCustomersRouter,
+  adminCouponsRouter,
   cronRouter,
 );

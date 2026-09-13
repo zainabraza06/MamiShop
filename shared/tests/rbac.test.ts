@@ -150,7 +150,9 @@ describe('canManageUser', () => {
 describe('canAccessSection', () => {
   it('opens fulfilment sections to staff and closes the rest', () => {
     expect(canAccessSection(as('STAFF'), 'orders')).toBe(true);
-    expect(canAccessSection(as('STAFF'), 'coupons')).toBe(false);
+    // Read-only: staff are asked whether a code still works, so they can see
+    // the coupons screen — creating or changing a code needs coupon.write.
+    expect(canAccessSection(as('STAFF'), 'coupons')).toBe(true);
     expect(canAccessSection(as('STAFF'), 'audit')).toBe(false);
     expect(canAccessSection(as('STAFF'), 'settings')).toBe(false);
   });

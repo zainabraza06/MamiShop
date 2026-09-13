@@ -33,6 +33,7 @@ export const PERMISSIONS = [
   'review.moderate',
   'return.read',
   'return.write',
+  'coupon.read',
   'coupon.write',
   'content.write',
   'settings.write',
@@ -68,6 +69,9 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'return.write',
     'review.moderate',
     'inventory.write',
+    // Read-only: staff are asked "does this code still work?" every day, and
+    // answering it should not require the right to create discounts.
+    'coupon.read',
     'report.read',
   ],
 
@@ -88,6 +92,7 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'review.moderate',
     'return.read',
     'return.write',
+    'coupon.read',
     'coupon.write',
     'content.write',
     'shipping.write',
@@ -175,7 +180,7 @@ export const SECTION_PERMISSIONS = {
   returns: ['return.read'],
   customers: ['customer.read'],
   reviews: ['review.moderate'],
-  coupons: ['coupon.write'],
+  coupons: ['coupon.read'],
   content: ['content.write'],
   reports: ['report.read'],
   staff: ['staff.read', 'staff.write'],
@@ -208,6 +213,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'review.moderate': 'Moderate reviews',
   'return.read': 'View return requests',
   'return.write': 'Process returns and exchanges',
+  'coupon.read': 'View coupons',
   'coupon.write': 'Manage coupons',
   'content.write': 'Edit homepage and pages',
   'settings.write': 'Change store settings',
