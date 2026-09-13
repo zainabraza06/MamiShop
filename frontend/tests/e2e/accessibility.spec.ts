@@ -119,3 +119,27 @@ test.describe('reduced motion', () => {
     expect(['0s', '0.01ms', '1e-05s']).toContain(duration);
   });
 });
+
+test.describe('mobile menu', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('opens as a full-height panel, not a strip clipped to the header', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Open menu' }).click();
+
+    const panel = page.locator('#mobile-navigation');
+    await expect(panel).toBeVisible();
+
+    // The header's backdrop-filter used to trap this fixed panel inside its
+    // own 64px box. Covering most of the viewport proves it escaped.
+    const box = await panel.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(389);
+    expect(box?.height).toBeGreaterThan(600);
+
+    await expect(panel.getByRole('link').first()).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Open menu' })).toBeFocused();
+  });
+});

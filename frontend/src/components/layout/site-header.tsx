@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react';
@@ -17,6 +18,11 @@ import type { CategoryNode } from '@momishop/shared/api-types';
  * it needs to contain navigation links whose click should close it and
  * navigate, which fights a dialog's focus trap more than it benefits from it.
  * Escape-to-close and focus return are wired up by hand below.
+ *
+ * The panel is portalled to <body>. The header uses `backdrop-filter` for its
+ * frosted look, and an element with a backdrop filter becomes the containing
+ * block for its `position: fixed` descendants — so a panel rendered inside it
+ * was clipped to the header's own 64px strip instead of covering the screen.
  */
 
 interface SiteHeaderProps {
@@ -31,6 +37,10 @@ export function SiteHeader({ categories, cartCount, isSignedIn, announcement }: 
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const menuButtonRef = React.useRef<HTMLButtonElement>(null);
+  const headerRef = React.useRef<HTMLElement>(null);
+  // Where the panel starts: below the header, which is taller when the
+  // announcement bar is showing, so it is measured rather than assumed.
+  const [panelTop, setPanelTop] = React.useState(64);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   /**
@@ -80,7 +90,10 @@ export function SiteHeader({ categories, cartCount, isSignedIn, announcement }: 
   }, [searchOpen]);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+    >
       {announcement && (
         <div className="bg-primary px-4 py-2 text-center text-xs font-medium text-primary-foreground">
           {announcement}
@@ -95,7 +108,12 @@ export function SiteHeader({ categories, cartCount, isSignedIn, announcement }: 
           className="lg:hidden"
           aria-expanded={mobileOpen}
           aria-controls="mobile-navigation"
-          onClick={() => setMobileOpen((open) => !open)}
+          onClick={() => {
+            if (!mobileOpen && headerRef.current) {
+              setPanelTop(headerRef.current.getBoundingClientRect().bottom);
+            }
+            setMobileOpen((open) => !open);
+          }}
         >
           {mobileOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
           <span className="sr-only">{mobileOpen ? 'Close menu' : 'Open menu'}</span>
@@ -184,43 +202,46 @@ export function SiteHeader({ categories, cartCount, isSignedIn, announcement }: 
         </div>
       )}
 
-      {mobileOpen && (
-        <div
-          id="mobile-navigation"
-          className="fixed inset-x-0 bottom-0 top-16 z-50 overflow-y-auto border-t bg-background lg:hidden"
-        >
-          <nav aria-label="Mobile" className="container py-6">
-            <ul className="space-y-1">
-              {categories.map((category) => (
-                <li key={category.id}>
-                  <Link
-                    href={`/products?category=${category.slug}`}
-                    className="flex min-h-11 items-center justify-between rounded-md px-3 text-base font-medium hover:bg-accent"
-                  >
-                    {category.name}
-                    <span className="text-xs text-muted-foreground">{category.productCount}</span>
-                  </Link>
+      {mobileOpen &&
+        createPortal(
+          <div
+            id="mobile-navigation"
+            style={{ top: panelTop }}
+            className="fixed inset-x-0 bottom-0 z-50 overflow-y-auto overscroll-contain border-t bg-background lg:hidden"
+          >
+            <nav aria-label="Mobile" className="container py-6">
+              <ul className="space-y-1">
+                {categories.map((category) => (
+                  <li key={category.id}>
+                    <Link
+                      href={`/products?category=${category.slug}`}
+                      className="flex min-h-11 items-center justify-between rounded-md px-3 text-base font-medium hover:bg-accent"
+                    >
+                      {category.name}
+                      <span className="text-xs text-muted-foreground">{category.productCount}</span>
+                    </Link>
 
-                  {category.children.length > 0 && (
-                    <ul className="ms-3 border-s ps-3">
-                      {category.children.map((child) => (
-                        <li key={child.id}>
-                          <Link
-                            href={`/products?category=${child.slug}`}
-                            className="flex min-h-11 items-center rounded-md px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-                          >
-                            {child.name}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </div>
-      )}
+                    {category.children.length > 0 && (
+                      <ul className="ms-3 border-s ps-3">
+                        {category.children.map((child) => (
+                          <li key={child.id}>
+                            <Link
+                              href={`/products?category=${child.slug}`}
+                              className="flex min-h-11 items-center rounded-md px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                            >
+                              {child.name}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </div>,
+          document.body,
+        )}
     </header>
   );
 }
