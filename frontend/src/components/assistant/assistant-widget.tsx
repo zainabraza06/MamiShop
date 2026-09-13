@@ -54,9 +54,7 @@ function saveTurns(turns: Turn[]) {
 function historyFor(turns: Turn[]) {
   const recent = turns.slice(-MAX_HISTORY);
   const start = recent.findIndex((turn) => turn.role === 'user');
-  return start === -1
-    ? []
-    : recent.slice(start).map(({ role, content }) => ({ role, content }));
+  return start === -1 ? [] : recent.slice(start).map(({ role, content }) => ({ role, content }));
 }
 
 export function AssistantWidget({ isSignedIn }: { isSignedIn: boolean }) {
@@ -117,8 +115,7 @@ export function AssistantWidget({ isSignedIn }: { isSignedIn: boolean }) {
         body: JSON.stringify({ messages: historyFor(withQuestion) }),
       });
       const data = (await response.json().catch(() => null)) as
-        | (AssistantReply & { error?: string })
-        | null;
+        (AssistantReply & { error?: string }) | null;
       if (!response.ok || !data) {
         throw new Error(data?.error ?? 'The assistant could not answer just now.');
       }
@@ -138,7 +135,9 @@ export function AssistantWidget({ isSignedIn }: { isSignedIn: boolean }) {
       // Put the question back so it can be sent again without retyping.
       setTurns(turns);
       setDraft(question);
-      setError(caught instanceof Error ? caught.message : 'The assistant could not answer just now.');
+      setError(
+        caught instanceof Error ? caught.message : 'The assistant could not answer just now.',
+      );
     } finally {
       setPending(false);
     }

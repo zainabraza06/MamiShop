@@ -110,8 +110,22 @@ describe('asking a question', () => {
         id: 'product_1',
         fabric: 'Nida',
         variants: [
-          { name: 'Black', kind: 'COLOR', priceDelta: 0, trackInventory: true, stockOnHand: 2, stockReserved: 2 },
-          { name: 'Maroon', kind: 'COLOR', priceDelta: 0, trackInventory: true, stockOnHand: 3, stockReserved: 0 },
+          {
+            name: 'Black',
+            kind: 'COLOR',
+            priceDelta: 0,
+            trackInventory: true,
+            stockOnHand: 2,
+            stockReserved: 2,
+          },
+          {
+            name: 'Maroon',
+            kind: 'COLOR',
+            priceDelta: 0,
+            trackInventory: true,
+            stockOnHand: 3,
+            stockReserved: 0,
+          },
         ],
       },
     ]);
@@ -121,7 +135,9 @@ describe('asking a question', () => {
       .mockResolvedValueOnce(
         callsTool('search_products', { query: 'abaya', colors: ['Black'], max_price_rs: 8000 }),
       )
-      .mockResolvedValueOnce(says('The Noor Abaya is on sale for Rs 7,500, but black is sold out.'));
+      .mockResolvedValueOnce(
+        says('The Noor Abaya is on sale for Rs 7,500, but black is sold out.'),
+      );
 
     const response = await request(app)
       .post('/api/assistant/chat')
@@ -150,7 +166,11 @@ describe('asking a question', () => {
     const second = complete.mock.calls[1][0];
     expect(second.messages[0].role).toBe('system');
     const toolMessage = second.messages.at(-1);
-    expect(toolMessage).toMatchObject({ role: 'tool', toolCallId: 'call_1', name: 'search_products' });
+    expect(toolMessage).toMatchObject({
+      role: 'tool',
+      toolCallId: 'call_1',
+      name: 'search_products',
+    });
     const found = JSON.parse(toolMessage.content).products[0];
     expect(found.options).toEqual([
       { name: 'Black', inStock: false },
@@ -161,7 +181,9 @@ describe('asking a question', () => {
 
   it('offers a custom request when the shop has nothing that fits', async () => {
     complete
-      .mockResolvedValueOnce(callsTool('offer_custom_request', { summary: 'Green sharara with gota work' }))
+      .mockResolvedValueOnce(
+        callsTool('offer_custom_request', { summary: 'Green sharara with gota work' }),
+      )
       .mockResolvedValueOnce(says('We can make one for you.'));
 
     const response = await request(app)
