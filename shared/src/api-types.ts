@@ -605,6 +605,60 @@ export interface AdminCategory {
   productCount: number;
 }
 
+// ── Admin: audit log ───────────────────────────────────────────────────────
+
+export interface AdminAuditEntry {
+  id: string;
+  /** "area.verb", e.g. "order.refund". */
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  summary: string | null;
+  actorEmail: string | null;
+  actorRole: string | null;
+  /** Only the fields that changed, with sensitive values redacted. */
+  diff: unknown;
+  createdAt: IsoDateString;
+}
+
+export interface AdminAuditList {
+  items: AdminAuditEntry[];
+  nextCursor: string | null;
+  areas: { name: string; count: number }[];
+}
+
+// ── Admin: staff ───────────────────────────────────────────────────────────
+
+export type StaffRole = 'STAFF' | 'ADMIN' | 'SUPER_ADMIN';
+
+export interface AdminStaffMember {
+  id: string;
+  name: string | null;
+  email: string;
+  role: StaffRole;
+  status: 'ACTIVE' | 'SUSPENDED' | 'DELETED';
+  /** Extra permissions on top of the role's defaults. */
+  permissions: string[];
+  lastLoginAt: IsoDateString | null;
+  createdAt: IsoDateString;
+  isSelf: boolean;
+  /** Whether the signed-in user may change this account. */
+  canManage: boolean;
+}
+
+export interface AdminStaffList {
+  items: AdminStaffMember[];
+  /** Roles the signed-in user may give someone. */
+  assignableRoles: StaffRole[];
+  canWrite: boolean;
+}
+
+export interface AdminStaffDetail {
+  staff: AdminStaffMember;
+  assignableRoles: StaffRole[];
+  canWrite: boolean;
+}
+
 // ── Admin: coupons ─────────────────────────────────────────────────────────
 
 export type CouponType = 'PERCENTAGE' | 'FIXED_AMOUNT' | 'FREE_SHIPPING';

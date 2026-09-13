@@ -535,6 +535,34 @@ test.describe('admin', () => {
       if (created) await page.request.delete(`/api/admin/coupons/${created.id}`);
     }
   });
+  test('a super admin can add a staff member, and the audit log records it', async ({
+    page,
+  }, testInfo) => {
+    const signIn = await page.request.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(signIn.status()).toBe(200);
+
+    const email = `e2e-staff-${Date.now()}${testInfo.parallelIndex}@momishop.pk`;
+    const main = page.locator('#main-content');
+
+    await page.goto('/admin/staff');
+    await main.getByRole('textbox', { name: /^Name/ }).fill('E2E Staff');
+    await main.getByRole('textbox', { name: /^Email/ }).fill(email);
+    await main.getByLabel('Starting password').fill('workshop-2026');
+    await main.getByRole('button', { name: 'Add staff' }).click();
+
+    // Lands on the new account, with the role's permissions shown as included.
+    await expect(main.getByText(email)).toBeVisible();
+    await expect(main.getByRole('checkbox', { name: 'View orders' })).toBeChecked();
+    await expect(main.getByRole('checkbox', { name: 'View orders' })).toBeDisabled();
+
+    await page.goto(`/admin/audit?area=staff&actor=${encodeURIComponent('admin@momishop.pk')}`);
+    await expect(main.getByText(`Added ${email} as staff`)).toBeVisible();
+  });
 });
 
 test.describe('operational endpoints', () => {
