@@ -44,6 +44,20 @@ function toQuery(filter: ProductFilter): string {
   return params.toString();
 }
 
+/**
+ * What the filter panel gets when the facet request fails.
+ *
+ * The panel is a convenience; the products are the page. A facets error, or
+ * an API deploy that lags behind the storefront's, shows the list with fewer
+ * filter choices rather than an error page.
+ */
+const NO_FACETS: ProductFacets = {
+  colors: [],
+  fabrics: [],
+  price: { min: 0, max: 0 },
+  fits: { madeToMeasure: 0, readyMade: 0 },
+};
+
 /** Shared by the page and its metadata; deduplicated into one API call. */
 function getCategory(slug: string) {
   return apiGetOrNull<{ category: CategoryDetail }>(`/categories/${encodeURIComponent(slug)}`);
@@ -95,7 +109,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
 
   const [{ items, nextCursor, total }, facets, categoryResult] = await Promise.all([
     apiGet<ProductListResponse>(`/products?${toQuery(filter)}`),
-    apiGet<ProductFacets>(`/products/facets?${facetScope}`),
+    apiGet<ProductFacets>(`/products/facets?${facetScope}`).catch(() => NO_FACETS),
     filter.category ? getCategory(filter.category) : Promise.resolve(null),
   ]);
 
