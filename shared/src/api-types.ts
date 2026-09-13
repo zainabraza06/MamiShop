@@ -424,7 +424,59 @@ export interface ChatMessage {
   authorName: string | null;
   body: string;
   attachments: string[];
+  /** Present when this message sent a price quote. */
+  quote: ChatQuote | null;
   createdAt: IsoDateString;
+}
+
+export type CustomQuoteStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'WITHDRAWN';
+
+export interface ChatQuote {
+  id: string;
+  /** Minor units, before delivery and tax. */
+  amount: number;
+  stitchingDays: number;
+  note: string | null;
+  status: CustomQuoteStatus;
+  expiresAt: IsoDateString;
+  /** Set once the quote has been accepted and turned into an order. */
+  orderNumber: string | null;
+}
+
+export interface QuoteCheckoutContext {
+  request: { id: string; number: string; title: string };
+  quote: ChatQuote;
+  email: string;
+  phone: string | null;
+  defaultAddress: {
+    fullName: string;
+    phone: string;
+    line1: string;
+    line2: string | null;
+    city: string;
+    state: string;
+    postalCode: string | null;
+  } | null;
+}
+
+export interface QuoteCheckoutPreview {
+  subtotal: number;
+  shippingTotal: number;
+  taxTotal: number;
+  grandTotal: number;
+  breakdown: { label: string; amount: number; kind: 'charge' | 'credit' }[];
+  rates: {
+    id: string;
+    name: string;
+    description: string | null;
+    amount: number;
+    freeAbove: number | null;
+    minDays: number;
+    maxDays: number;
+  }[];
+  selectedRateId: string | null;
+  /** Whether cash on delivery is offered for this total and address. */
+  codAllowed: boolean;
 }
 
 export interface CustomRequestSummary {

@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/input';
 import { isClosedRequest, messageTime } from '@/lib/custom-requests';
 import { cn } from '@/lib/utils';
 import { PhotoPicker } from './photo-picker';
+import { QuoteCard } from './quote-card';
 
 /**
  * The conversation about a custom request, used by the customer and the shop.
@@ -193,6 +194,14 @@ export function ChatThread({
                 )}
               >
                 {message.body && <p className="whitespace-pre-wrap break-words">{message.body}</p>}
+                {message.quote && (
+                  <QuoteCard
+                    quote={message.quote}
+                    viewer={viewer}
+                    requestId={endpoint.split('/').pop() ?? ''}
+                    onChanged={() => undefined}
+                  />
+                )}
                 {message.attachments.length > 0 && (
                   <ul className="flex flex-wrap gap-2">
                     {message.attachments.map((url, index) => (

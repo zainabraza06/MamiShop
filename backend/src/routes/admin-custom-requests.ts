@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { chatMessageSchema, safeText } from '@momishop/shared/validation';
+import { chatMessageSchema, customQuoteSchema, safeText } from '@momishop/shared/validation';
 import { prisma } from '../lib/db';
 import { ConflictError, NotFoundError } from '../lib/errors';
 import { requirePermission } from '../auth/current-user';
@@ -9,6 +9,7 @@ import { ipHash, rateLimit } from '../http/request';
 import { parseBody, parseQuery } from '../http/validate';
 import { actorFrom, recordAudit } from '../services/audit';
 import { enqueue } from '../services/jobs';
+import { sendQuote, withdrawQuote } from '../services/custom-quotes';
 import {
   assertOwnAttachments,
   forStaff,
@@ -268,3 +269,32 @@ adminCustomRequestsRouter.patch('/admin/custom-requests/:id/status', async (req,
 
   res.json({ ok: true, status: input.status });
 });
+
+// ── Quotes ─────────────────────────────────────────────────────────────────
+
+/** Sending a price. Admins only: a quote sets a price, which staff cannot do elsewhere. */
+adminCustomRequestsRouter.post('/admin/custom-requests/:id/quotes', async (req, res) => {
+  const actor = await requirePermission(req, 'request.quote');
+  const input = parseBody(req, customQuoteSchema);
+
+  const quote = await sendQuote(req.params.id, actor, input, {
+    ip: ipHash(req),
+    userAgent: req.get('user-agent') ?? null,
+  });
+
+  res.status(201).json({ quoteId: quote.id });
+});
+
+adminCustomRequestsRouter.post(
+  '/admin/custom-requests/:id/quotes/:quoteId/withdraw',
+  async (req, res) => {
+    const actor = await requirePermission(req, 'request.quote');
+
+    await withdrawQuote(req.params.id, req.params.quoteId, actor, {
+      ip: ipHash(req),
+      userAgent: req.get('user-agent') ?? null,
+    });
+
+    res.json({ ok: true });
+  },
+);

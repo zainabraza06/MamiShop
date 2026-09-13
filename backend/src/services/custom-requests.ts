@@ -4,6 +4,7 @@ import type { ChatMessage } from '@momishop/shared/api-types';
 import { prisma } from '../lib/db';
 import { ValidationError } from '../lib/errors';
 import { isUniqueViolation } from '../lib/prisma-errors';
+import { quoteSelect, toChatQuote } from './custom-quotes';
 
 /**
  * Shared pieces of the custom request conversation: photo checks, reference
@@ -97,6 +98,7 @@ export const messageSelect = {
   attachments: true,
   createdAt: true,
   author: { select: { name: true } },
+  quote: { select: quoteSelect },
 } satisfies Prisma.CustomRequestMessageSelect;
 
 type SelectedMessage = Prisma.CustomRequestMessageGetPayload<{ select: typeof messageSelect }>;
@@ -112,6 +114,7 @@ export function forCustomer(message: SelectedMessage): ChatMessage {
     authorName: null,
     body: message.body,
     attachments: message.attachments,
+    quote: message.quote ? toChatQuote(message.quote) : null,
     createdAt: message.createdAt.toISOString(),
   };
 }

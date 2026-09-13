@@ -689,6 +689,85 @@ test.describe('admin', () => {
 });
 
 test.describe('custom requests', () => {
+  test('the owner sends a quote and the customer accepts it as an order', async ({
+    browser,
+  }, testInfo) => {
+    const customer = await browser.newContext({ ...testInfo.project.use });
+    const owner = await browser.newContext({ ...testInfo.project.use });
+
+    try {
+      const customerPage = await customer.newPage();
+      const ownerPage = await owner.newPage();
+
+      expect(
+        (
+          await customerPage.request.post('/api/auth/login', {
+            data: { email: 'ayesha@example.com', password: 'Customer!2024' },
+          })
+        ).status(),
+      ).toBe(200);
+      expect(
+        (
+          await ownerPage.request.post('/api/auth/login', {
+            data: {
+              email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+              password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+            },
+          })
+        ).status(),
+      ).toBe(200);
+
+      const title = `Eid frock ${Date.now()}${testInfo.parallelIndex}`;
+      const created = await customerPage.request.post('/api/custom-requests', {
+        data: {
+          title,
+          description: 'A peach cotton frock with lace at the hem, for a six year old.',
+          template: 'GIRLS_STITCHED',
+        },
+      });
+      expect(created.status()).toBe(201);
+      const { request } = (await created.json()) as { request: { id: string } };
+
+      // The owner sends a price from the conversation.
+      await ownerPage.goto(`/admin/custom-requests/${request.id}`);
+      const sidebar = ownerPage.locator('#main-content');
+      await sidebar.getByRole('textbox', { name: /^Price \(Rs\)/ }).fill('5000');
+      await sidebar.getByRole('textbox', { name: /^Stitching days/ }).fill('8');
+      await sidebar.getByRole('button', { name: 'Send quote' }).click();
+      await expect(ownerPage.getByText('Quote sent to the customer.')).toBeVisible();
+
+      // The customer sees the quote card and accepts it.
+      await customerPage.goto(`/account/custom-requests/${request.id}`);
+      const quote = customerPage.getByRole('region', { name: 'Price quote' });
+      await expect(quote.getByText('Rs 5,000')).toBeVisible();
+      await quote.getByRole('link', { name: 'Accept and order' }).click();
+
+      const form = customerPage.locator('#main-content');
+      await form.getByRole('textbox', { name: /^Full name/ }).fill('Ayesha Khan');
+      await form.getByRole('textbox', { name: /^Mobile number/ }).fill('03001234567');
+      await form.getByRole('textbox', { name: /^Address/ }).fill('12 Garden Town');
+      await form.getByRole('textbox', { name: /^City/ }).fill('Lahore');
+      await form.getByRole('combobox', { name: /^Province/ }).click();
+      await customerPage.getByRole('option', { name: 'Punjab' }).click();
+
+      // The delivery options come back priced for that address.
+      await expect(form.getByRole('radio', { name: /Cash on delivery/ })).toBeEnabled();
+      await expect(form.getByRole('radio').first()).toBeChecked();
+      await form.getByRole('checkbox', { name: /I agree to the/ }).check();
+      await form.getByRole('button', { name: 'Place order' }).click();
+
+      await expect(customerPage).toHaveURL(/\/order-confirmed\/MS-/, { timeout: 30_000 });
+      await expect(customerPage.getByText(title)).toBeVisible();
+
+      // The request is now marked as ordered for the owner.
+      await ownerPage.goto(`/admin/custom-requests/${request.id}`);
+      await expect(ownerPage.getByText('Ordered', { exact: true })).toBeVisible();
+    } finally {
+      await customer.close();
+      await owner.close();
+    }
+  });
+
   test('a customer asks for a piece and the owner replies in the conversation', async ({
     browser,
   }, testInfo) => {

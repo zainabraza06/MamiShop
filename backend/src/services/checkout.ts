@@ -44,7 +44,7 @@ export interface PlacedOrder {
   paymentMethod: string;
 }
 
-async function getShippingZones() {
+export async function getShippingZones() {
   return cached(CACHE_KEYS.shippingRules, CACHE_TTL.shippingRules, async () =>
     prisma.shippingZone.findMany({
       where: { isActive: true },
@@ -53,7 +53,7 @@ async function getShippingZones() {
   );
 }
 
-async function getTaxRules() {
+export async function getTaxRules() {
   return cached(CACHE_KEYS.taxRules, CACHE_TTL.taxRules, async () =>
     prisma.taxRule.findMany({ where: { isActive: true } }),
   );
@@ -67,7 +67,7 @@ async function getTaxRules() {
  * `orderNumber` is the real guarantee: under concurrency two transactions can
  * compute the same count, and the loser is retried by runOrderTransaction().
  */
-async function nextOrderNumber(tx: Prisma.TransactionClient): Promise<string> {
+export async function nextOrderNumber(tx: Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear();
   const startOfYear = new Date(year, 0, 1);
 
@@ -452,7 +452,7 @@ export async function placeOrder(ctx: PlaceOrderContext): Promise<PlacedOrder> {
  * insufficient loyalty points) is a real failure and propagates immediately;
  * retrying those would just repeat the same rejection.
  */
-async function runOrderTransaction(
+export async function runOrderTransaction(
   work: (tx: Prisma.TransactionClient) => Promise<PlacedOrder>,
 ): Promise<PlacedOrder> {
   const MAX_ATTEMPTS = 4;

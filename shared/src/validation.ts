@@ -379,6 +379,30 @@ export const chatMessageSchema = z
     path: ['body'],
   });
 
+export const customQuoteSchema = z.object({
+  /** Minor units: the piece itself, before delivery and tax. */
+  amount: z.coerce.number().int().min(100, 'Enter a price.').max(100_000_000),
+  stitchingDays: z.coerce.number().int().min(1, 'How many days to make it?').max(120),
+  note: multilineText(1000, 'Note').default(''),
+  validDays: z.coerce.number().int().min(1).max(60).default(7),
+});
+
+export const quoteAcceptSchema = z.object({
+  phone: phoneSchema,
+  shippingAddress: addressSchema,
+  shippingRateId: cuidSchema,
+  /** Card and wallet payments are not wired to a gateway, so a quote is paid on delivery or by transfer. */
+  paymentMethod: z.enum(['COD', 'BANK_TRANSFER']),
+  customerNote: safeText(500, 'Note').optional(),
+  acceptTerms: z.literal(true, {
+    errorMap: () => ({ message: 'Please accept the terms to place your order.' }),
+  }),
+});
+
+export const quoteDeclineSchema = z.object({
+  reason: safeText(500, 'Reason').optional(),
+});
+
 // ── Admin ────────────────────────────────────────────────────────────────────
 
 export const productVariantSchema = z.object({

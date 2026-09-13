@@ -56,6 +56,9 @@ export default async function CustomRequestPage({ params }: { params: Promise<{ 
       </div>
 
       <ChatThread
+        // A refresh after accepting, declining or withdrawing a quote brings
+        // fresh messages; remounting takes them instead of the stale copy.
+        key={`${request.status}:${request.messages.length}`}
         endpoint={`/api/custom-requests/${request.id}`}
         viewer="CUSTOMER"
         initialMessages={request.messages}

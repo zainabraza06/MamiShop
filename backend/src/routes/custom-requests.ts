@@ -2,13 +2,25 @@ import { Router } from 'express';
 import type { Request } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { chatMessageSchema, customRequestSchema } from '@momishop/shared/validation';
+import {
+  chatMessageSchema,
+  customRequestSchema,
+  quoteAcceptSchema,
+  quoteDeclineSchema,
+} from '@momishop/shared/validation';
 import { prisma } from '../lib/db';
 import { ConflictError, NotFoundError, ValidationError } from '../lib/errors';
 import { requireUser } from '../auth/current-user';
-import { rateLimit } from '../http/request';
+import { ipHash, rateLimit } from '../http/request';
 import { parseBody, parseQuery } from '../http/validate';
 import { enqueue } from '../services/jobs';
+import {
+  declineQuote,
+  loadAcceptableQuote,
+  placeQuoteOrder,
+  priceQuote,
+  toChatQuote,
+} from '../services/custom-quotes';
 import {
   assertOwnAttachments,
   forCustomer,
@@ -254,4 +266,101 @@ customRequestsRouter.post('/custom-requests/:id/messages', async (req, res) => {
   });
 
   res.status(201).json({ message: forCustomer(message) });
+});
+
+// ── Quotes ─────────────────────────────────────────────────────────────────
+
+/** Everything the page for accepting a quote needs before the customer types anything. */
+customRequestsRouter.get('/custom-requests/:id/quotes/:quoteId/checkout', async (req, res) => {
+  const user = await requireUser(req);
+  const quote = await loadAcceptableQuote(req.params.id, req.params.quoteId, user.id);
+
+  const address = await prisma.address.findFirst({
+    where: { userId: user.id, deletedAt: null, type: 'SHIPPING' },
+    orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+    select: {
+      fullName: true,
+      phone: true,
+      line1: true,
+      line2: true,
+      city: true,
+      state: true,
+      postalCode: true,
+    },
+  });
+
+  const { request, ...rest } = quote;
+  res.json({
+    request: { id: request.id, number: request.number, title: request.title },
+    quote: toChatQuote(rest),
+    email: request.user.email,
+    phone: request.user.phone,
+    defaultAddress: address,
+  });
+});
+
+const previewSchema = z.object({
+  country: z.string().trim().length(2).default('PK'),
+  state: z.string().trim().min(1).max(60),
+  city: z.string().trim().min(1).max(60),
+  shippingRateId: z.string().max(64).nullish(),
+  paymentMethod: z.enum(['COD', 'BANK_TRANSFER']).optional(),
+});
+
+/** The live summary beside the form: delivery options and the total to pay. */
+customRequestsRouter.post('/custom-requests/:id/quotes/:quoteId/preview', async (req, res) => {
+  const user = await requireUser(req);
+  await rateLimit(req, 'api', user.id);
+  const input = parseBody(req, previewSchema);
+  const quote = await loadAcceptableQuote(req.params.id, req.params.quoteId, user.id);
+
+  const { pricing, rate, rates, codAllowed } = await priceQuote(
+    quote.amount,
+    { country: input.country, state: input.state, city: input.city },
+    { shippingRateId: input.shippingRateId ?? null, paymentMethod: input.paymentMethod },
+  );
+
+  res.json({
+    subtotal: pricing.subtotal,
+    shippingTotal: pricing.shippingTotal,
+    taxTotal: pricing.taxTotal,
+    grandTotal: pricing.grandTotal,
+    breakdown: pricing.breakdown,
+    rates: rates.map((option) => ({
+      id: option.id,
+      name: option.name,
+      description: option.description,
+      amount: option.amount,
+      freeAbove: option.freeAbove,
+      minDays: option.minDays,
+      maxDays: option.maxDays,
+    })),
+    selectedRateId: rate?.id ?? null,
+    codAllowed,
+  });
+});
+
+customRequestsRouter.post('/custom-requests/:id/quotes/:quoteId/accept', async (req, res) => {
+  const user = await requireUser(req);
+  await rateLimit(req, 'checkout', user.id);
+  const input = parseBody(req, quoteAcceptSchema);
+
+  const order = await placeQuoteOrder({
+    requestId: req.params.id,
+    quoteId: req.params.quoteId,
+    userId: user.id,
+    input,
+    ipHash: ipHash(req),
+    userAgent: req.get('user-agent') ?? null,
+  });
+
+  res.status(201).json({ orderNumber: order.orderNumber });
+});
+
+customRequestsRouter.post('/custom-requests/:id/quotes/:quoteId/decline', async (req, res) => {
+  const user = await requireUser(req);
+  const { reason } = parseBody(req, quoteDeclineSchema);
+
+  await declineQuote(req.params.id, req.params.quoteId, user.id, reason);
+  res.json({ ok: true });
 });

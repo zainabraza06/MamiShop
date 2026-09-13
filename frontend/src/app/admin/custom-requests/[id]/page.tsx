@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 import type { AdminCustomRequestDetail, AdminShell } from '@momishop/shared/api-types';
 import { formatMoney } from '@momishop/shared/money';
 import { hasPermission, type Principal } from '@momishop/shared/rbac';
+import { QuoteForm } from '@/components/admin/quote-form';
 import { RequestStatusControl } from '@/components/admin/request-status-control';
 import { ChatThread } from '@/components/chat/chat-thread';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +50,10 @@ export default async function AdminCustomRequestPage({
     permissions: shell.user.permissions,
   };
   const canWrite = hasPermission(principal, 'request.write');
+  const canQuote =
+    hasPermission(principal, 'request.quote') &&
+    ['OPEN', 'QUOTED', 'ACCEPTED'].includes(request.status);
+  const hasOpenQuote = request.messages.some((message) => message.quote?.status === 'PENDING');
   const measurements = request.measurementSnapshot
     ? Object.entries(request.measurementSnapshot)
     : [];
@@ -75,6 +80,9 @@ export default async function AdminCustomRequestPage({
 
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_320px]">
         <ChatThread
+          // A refresh after accepting, declining or withdrawing a quote brings
+          // fresh messages; remounting takes them instead of the stale copy.
+          key={`${request.status}:${request.messages.length}`}
           endpoint={`/api/admin/custom-requests/${request.id}`}
           viewer="STAFF"
           initialMessages={request.messages}
@@ -162,6 +170,18 @@ export default async function AdminCustomRequestPage({
               )}
             </CardContent>
           </Card>
+
+          {canQuote && (
+            <Card>
+              <CardHeader>
+                <CardTitle as="h2">Send a quote</CardTitle>
+              </CardHeader>
+
+              <CardContent>
+                <QuoteForm requestId={request.id} hasOpenQuote={hasOpenQuote} />
+              </CardContent>
+            </Card>
+          )}
 
           {canWrite && (
             <Card>

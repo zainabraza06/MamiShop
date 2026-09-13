@@ -80,6 +80,7 @@ model User {
 
   customRequests        CustomRequest[]
   customRequestMessages CustomRequestMessage[] @relation("CustomRequestMessageAuthor")
+  customQuotes          CustomQuote[]          @relation("CustomQuoteAuthor")
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   deletedAt             DateTime?
@@ -628,11 +629,12 @@ model Order {
   returnRequests ReturnRequest[]
   payments       PaymentTransaction[]
 
-  placedAt   DateTime  @default(now())
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  customQuote CustomQuote?
+  placedAt    DateTime     @default(now())
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   /// Retention policy anchor — see docs/DATA_RETENTION.md
-  purgeAfter DateTime?
+  purgeAfter  DateTime?
 
   @@index([userId, placedAt])
   @@index([status, placedAt])
@@ -1258,8 +1260,9 @@ model CustomRequest {
   measurementProfile MeasurementProfile?    @relation(fields: [measurementProfileId], references: [id], onDelete: SetNull)
   messages           CustomRequestMessage[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  quotes    CustomQuote[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   @@index([userId, lastMessageAt])
   @@index([status, lastMessageAt])
@@ -1275,12 +1278,50 @@ model CustomRequestMessage {
   body        String            @db.Text
   /// Cloudinary addresses of photos attached to this message.
   attachments String[]          @default([])
+  /// Set when the message sends a price quote.
+  quoteId     String?
 
   request CustomRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   author  User?         @relation("CustomRequestMessageAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  quote   CustomQuote?  @relation(fields: [quoteId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
   @@index([requestId, createdAt])
   @@map("custom_request_messages")
+}
+
+enum CustomQuoteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+}
+
+/// A price the shop offers for a custom request. Accepting it places an order.
+model CustomQuote {
+  id        String @id @default(cuid())
+  requestId String
+
+  /// The price of the piece in minor units, before delivery and tax.
+  amount        Int
+  stitchingDays Int
+  note          String?           @db.Text
+  status        CustomQuoteStatus @default(PENDING)
+  /// After this the quote can no longer be accepted; prices of fabric move.
+  expiresAt     DateTime
+  respondedAt   DateTime?
+
+  createdById String?
+  orderId     String? @unique
+
+  request   CustomRequest          @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  createdBy User?                  @relation("CustomQuoteAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  order     Order?                 @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  messages  CustomRequestMessage[]
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId, createdAt])
+  @@map("custom_quotes")
 }
