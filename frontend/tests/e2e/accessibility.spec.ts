@@ -158,3 +158,25 @@ test.describe('mobile menu', () => {
     await expect(panel).toBeHidden();
   });
 });
+
+test.describe('mobile filters', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('choosing a category closes the panel and shows the results', async ({ page }) => {
+    await page.goto('/products');
+
+    const toggle = page.getByRole('button', { name: /^Filters/ });
+    await toggle.click();
+
+    const panel = page.locator('#product-filters');
+    await expect(panel).toBeVisible();
+
+    const option = panel.getByRole('button', { name: 'Abayas', exact: true });
+    await option.click();
+
+    // The URL changing is not enough: the panel used to stay open over it.
+    await page.waitForURL(/[?&]category=abayas/);
+    await expect(panel).toBeHidden();
+    await expect(toggle).toBeInViewport();
+  });
+});

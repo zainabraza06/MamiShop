@@ -20,6 +20,12 @@ import type { ProductFilter } from '@momishop/shared/validation';
  *
  * Price inputs are debounced so typing "5000" issues one navigation rather
  * than four.
+ *
+ * On mobile the panel sits above the results. A discrete choice (category,
+ * sort, clear) closes it and brings the results back into view: navigating
+ * with `scroll: false` while the panel stayed open changed the products out of
+ * sight below a long list, so the tap looked like it had done nothing. Price
+ * typing leaves it open, because the shopper is usually mid-entry.
  */
 export function ProductFilters({
   categories,
@@ -31,6 +37,8 @@ export function ProductFilters({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [open, setOpen] = React.useState(false);
+  const [isPending, startTransition] = React.useTransition();
+  const toggleRef = React.useRef<HTMLDivElement>(null);
 
   // Rupees for display; the URL and API carry paisa.
   const [minPrice, setMinPrice] = React.useState(
@@ -40,6 +48,13 @@ export function ProductFilters({
     current.maxPrice ? String(current.maxPrice / 100) : '',
   );
 
+  /** Closes the mobile panel and returns the shopper to the results. */
+  const showResults = React.useCallback(() => {
+    if (!open) return;
+    setOpen(false);
+    toggleRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [open]);
+
   const pushWith = React.useCallback(
     (mutate: (params: URLSearchParams) => void) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -47,9 +62,19 @@ export function ProductFilters({
       // Any filter change resets pagination; keeping a stale cursor would show
       // page 3 of a result set the shopper has never seen page 1 of.
       params.delete('cursor');
-      router.push(params.size > 0 ? `/products?${params}` : '/products', { scroll: false });
+      startTransition(() => {
+        router.push(params.size > 0 ? `/products?${params}` : '/products', { scroll: false });
+      });
     },
     [router, searchParams],
+  );
+
+  const choose = React.useCallback(
+    (mutate: (params: URLSearchParams) => void) => {
+      pushWith(mutate);
+      showResults();
+    },
+    [pushWith, showResults],
   );
 
   // Debounce the price fields so each keystroke does not navigate.
@@ -89,17 +114,18 @@ export function ProductFilters({
   return (
     <>
       {/* Mobile toggle */}
-      <div className="lg:hidden">
+      <div ref={toggleRef} className="scroll-mt-20 lg:hidden">
         <Button
           variant="outline"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-controls="product-filters"
+          aria-busy={isPending || undefined}
           fullWidth
         >
           <SlidersHorizontal aria-hidden="true" />
-          Filters
-          {activeCount > 0 && ` (${activeCount})`}
+          {isPending ? 'Updating…' : 'Filters'}
+          {!isPending && activeCount > 0 && ` (${activeCount})`}
         </Button>
       </div>
 
@@ -114,7 +140,7 @@ export function ProductFilters({
           label="Sort by"
           id="filter-sort"
           value={current.sort}
-          onValueChange={(value) => pushWith((p) => p.set('sort', value))}
+          onValueChange={(value) => choose((p) => p.set('sort', value))}
           options={[
             { value: 'newest', label: 'Newest first' },
             { value: 'popular', label: 'Most popular' },
@@ -131,7 +157,7 @@ export function ProductFilters({
             <li>
               <button
                 type="button"
-                onClick={() => pushWith((p) => p.delete('category'))}
+                onClick={() => choose((p) => p.delete('category'))}
                 aria-current={!current.category}
                 className={cn(
                   'w-full rounded px-2 py-1.5 text-start text-sm hover:bg-accent',
@@ -145,7 +171,7 @@ export function ProductFilters({
               <li key={category.slug}>
                 <button
                   type="button"
-                  onClick={() => pushWith((p) => p.set('category', category.slug))}
+                  onClick={() => choose((p) => p.set('category', category.slug))}
                   aria-current={current.category === category.slug}
                   style={{ paddingInlineStart: `${0.5 + category.depth * 0.75}rem` }}
                   className={cn(
@@ -196,7 +222,8 @@ export function ProductFilters({
             onClick={() => {
               setMinPrice('');
               setMaxPrice('');
-              router.push('/products', { scroll: false });
+              startTransition(() => router.push('/products', { scroll: false }));
+              showResults();
             }}
           >
             <X aria-hidden="true" />
