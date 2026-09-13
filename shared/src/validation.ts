@@ -436,7 +436,11 @@ export const productSchema = z.object({
   pieces: safeText(40, 'Pieces').optional(),
   tags: z.array(z.string().trim().max(40)).max(20).default([]),
   basePrice: z.coerce.number().int().min(0, 'Price cannot be negative.'),
-  compareAtPrice: z.coerce.number().int().min(0).optional(),
+  /**
+   * The "Was" price. Null ends a sale: leaving the field out of a save
+   * would keep the old value, so a sale could never be switched off.
+   */
+  compareAtPrice: z.coerce.number().int().min(0).nullable().optional(),
   currency: currencySchema.default('PKR'),
   taxClass: z.string().trim().max(32).default('STANDARD'),
   requiresMeasurements: z.boolean().default(true),

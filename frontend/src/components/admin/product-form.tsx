@@ -147,7 +147,8 @@ export function ProductForm({
       categoryId,
       status,
       basePrice: toMinor(basePrice),
-      compareAtPrice: compareAtPrice ? toMinor(compareAtPrice) : undefined,
+      // null, not undefined: an empty "Was" price has to reach the API to end a sale.
+      compareAtPrice: compareAtPrice ? toMinor(compareAtPrice) : null,
       shortDescription: shortDescription || undefined,
       description: description || undefined,
       fabric: fabric || undefined,

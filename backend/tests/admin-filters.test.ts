@@ -309,6 +309,20 @@ describe('tagging a product', () => {
     expect(prismaMock.product.update).not.toHaveBeenCalled();
   });
 
+  it('ends a sale when the Was price is cleared', async () => {
+    prismaMock.filterOption.count.mockResolvedValue(0);
+
+    const response = await request(app)
+      .patch('/api/admin/products/product_1')
+      .set('Cookie', await cookieFor('ADMIN'))
+      .set('Origin', ORIGIN)
+      .send({ ...payload, compareAtPrice: null });
+
+    expect(response.status).toBe(200);
+    // Written as null, not left out: leaving it out would keep the old Was price.
+    expect(prismaMock.product.update.mock.calls[0][0].data.compareAtPrice).toBeNull();
+  });
+
   it('replaces the product tags with the ones ticked', async () => {
     prismaMock.filterOption.count.mockResolvedValue(2);
 
