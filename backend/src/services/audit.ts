@@ -49,6 +49,7 @@ export type AuditAction =
   | 'staff.role_change'
   | 'staff.delete'
   | 'content.update'
+  | 'page.create'
   | 'page.update'
   | 'settings.update'
   | 'shipping.update'

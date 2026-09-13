@@ -563,6 +563,44 @@ test.describe('admin', () => {
     await page.goto(`/admin/audit?area=staff&actor=${encodeURIComponent('admin@momishop.pk')}`);
     await expect(main.getByText(`Added ${email} as staff`)).toBeVisible();
   });
+  test('an admin can change the announcement bar and shoppers see it', async ({
+    page,
+  }, testInfo) => {
+    // There is one announcement for the whole shop; two projects editing it at
+    // once would overwrite each other.
+    test.skip(testInfo.project.name !== 'chromium', 'runs in one project only');
+
+    const signIn = await page.request.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(signIn.status()).toBe(200);
+
+    const before = (await (await page.request.get('/api/admin/content')).json()) as {
+      announcement: { text: string; isActive: boolean } | null;
+    };
+    const message = `E2E notice ${Date.now()}`;
+    const main = page.locator('#main-content');
+
+    try {
+      await page.goto('/admin/content');
+      await main.getByRole('textbox', { name: /^Message/ }).fill(message);
+      await main.getByRole('button', { name: 'Save announcement' }).click();
+      await expect(page.getByText('Announcement saved.')).toBeVisible();
+
+      // Straight away, not after the ten-minute content cache runs out.
+      await page.goto('/');
+      await expect(page.getByText(message)).toBeVisible();
+    } finally {
+      if (before.announcement) {
+        await page.request.put('/api/admin/content/announcement', {
+          data: { text: before.announcement.text, isActive: before.announcement.isActive },
+        });
+      }
+    }
+  });
 });
 
 test.describe('operational endpoints', () => {

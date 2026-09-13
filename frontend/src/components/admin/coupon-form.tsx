@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormErrorSummary, FormField } from '@/components/ui/form-field';
 import { Input, Textarea } from '@/components/ui/input';
 import { SelectField } from '@/components/ui/select-field';
+import { endOfShopDay, shopDay, startOfShopDay } from '@/lib/shop-time';
 
 /**
  * The coupon editor, for new and existing codes.
@@ -24,9 +25,6 @@ import { SelectField } from '@/components/ui/select-field';
  * that up front rather than letting someone edit and then refusing the save.
  */
 
-const SHOP_TIME_ZONE = 'Asia/Karachi';
-const SHOP_UTC_OFFSET = '+05:00';
-
 const TYPE_OPTIONS: { value: CouponType; label: string }[] = [
   { value: 'PERCENTAGE', label: 'Percentage off' },
   { value: 'FIXED_AMOUNT', label: 'Fixed amount off' },
@@ -37,18 +35,6 @@ const toMajor = (minor: number | null | undefined) =>
   minor === null || minor === undefined ? '' : String(minor / 100);
 const toMinor = (major: string) => Math.round(Number(major || '0') * 100);
 const digits = (value: string) => value.replace(/[^\d.]/g, '');
-
-/** An ISO timestamp as the calendar day it falls on in Pakistan. */
-function shopDay(iso: string | null): string {
-  if (!iso) return '';
-  // en-CA formats as YYYY-MM-DD, which is what a date input expects.
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: SHOP_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(iso));
-}
 
 export function CouponForm({
   coupon,
@@ -132,8 +118,8 @@ export function CouponForm({
       isActive,
       // Whole days in Pakistan time: from the first moment of the start day to
       // the last moment of the end day.
-      startsAt: startDay ? `${startDay}T00:00:00${SHOP_UTC_OFFSET}` : null,
-      endsAt: endDay ? `${endDay}T23:59:59${SHOP_UTC_OFFSET}` : null,
+      startsAt: startOfShopDay(startDay),
+      endsAt: endOfShopDay(endDay),
     };
 
     try {

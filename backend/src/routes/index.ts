@@ -4,6 +4,7 @@ import { adminRouter } from './admin';
 import { adminAuditRouter } from './admin-audit';
 import { adminStaffRouter } from './admin-staff';
 import { adminCatalogueRouter } from './admin-catalogue';
+import { adminContentRouter } from './admin-content';
 import { adminCouponsRouter } from './admin-coupons';
 import { adminCustomersRouter } from './admin-customers';
 import { adminModerationRouter } from './admin-moderation';
@@ -43,6 +44,7 @@ apiRouter.use(
   adminOrdersRouter,
   adminModerationRouter,
   adminCatalogueRouter,
+  adminContentRouter,
   adminCustomersRouter,
   adminCouponsRouter,
   cronRouter,

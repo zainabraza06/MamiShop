@@ -605,6 +605,48 @@ export interface AdminCategory {
   productCount: number;
 }
 
+// ── Admin: content ─────────────────────────────────────────────────────────
+
+export interface AdminAnnouncement {
+  text: string;
+  isActive: boolean;
+  startsAt: IsoDateString | null;
+  endsAt: IsoDateString | null;
+  updatedAt: IsoDateString;
+}
+
+/** Every field is optional: the block holds whatever was last saved or seeded. */
+export interface AdminHero {
+  headline?: string;
+  subhead?: string;
+  ctaLabel?: string;
+  ctaHref?: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  isActive: boolean;
+  updatedAt: IsoDateString;
+}
+
+export interface AdminPageSummary {
+  id: string;
+  slug: string;
+  title: string;
+  isPublished: boolean;
+  updatedAt: IsoDateString;
+}
+
+export interface AdminPage extends AdminPageSummary {
+  body: string;
+  metaTitle: string | null;
+  metaDescription: string | null;
+}
+
+export interface AdminContent {
+  announcement: AdminAnnouncement | null;
+  hero: AdminHero | null;
+  pages: AdminPageSummary[];
+}
+
 // ── Admin: audit log ───────────────────────────────────────────────────────
 
 export interface AdminAuditEntry {
