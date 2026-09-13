@@ -53,9 +53,17 @@
     --ring: 18 32% 38%;
 
     --radius: 0.5rem;
+
+    /*
+     * Chart series colour. Not the clay --primary: as a data colour it reads
+     * as grey (below the chroma floor), so charts use a blue validated for
+     * lightness, chroma and 3:1 contrast against --card in each mode.
+     */
+    --chart-series-1: #2a78d6;
   }
 
   .dark {
+    --chart-series-1: #3987e5;
     --background: 25 14% 10%;
     --foreground: 35 20% 94%;
 

@@ -648,6 +648,33 @@ test.describe('admin', () => {
       if (created) await page.request.delete(`/api/admin/shipping-zones/${created.id}`);
     }
   });
+  test('an admin can read sales for a date range and download the orders', async ({ page }) => {
+    const signIn = await page.request.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(signIn.status()).toBe(200);
+
+    const main = page.locator('#main-content');
+    await page.goto('/admin/reports');
+    await main.getByRole('link', { name: 'Last 7 days' }).click();
+
+    await expect(main.getByRole('link', { name: 'Last 7 days' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(main.getByText('Excludes cancelled and refunded orders.')).toBeVisible();
+    await expect(main.getByRole('heading', { name: 'Revenue by day' })).toBeVisible();
+
+    const download = main.getByRole('link', { name: 'Download orders (CSV)' });
+    const href = await download.getAttribute('href');
+    const csv = await page.request.get(href ?? '');
+    expect(csv.status()).toBe(200);
+    expect(csv.headers()['content-type']).toContain('text/csv');
+    expect(await csv.text()).toContain('Order number,Placed (Pakistan time)');
+  });
 });
 
 test.describe('operational endpoints', () => {

@@ -605,6 +605,27 @@ export interface AdminCategory {
   productCount: number;
 }
 
+// ── Admin: reports ─────────────────────────────────────────────────────────
+
+export interface AdminReport {
+  /** Pakistan calendar days, inclusive. */
+  range: { from: string; to: string };
+  /** Minor units. Revenue excludes cancelled and refunded orders. */
+  summary: {
+    revenue: number;
+    orders: number;
+    averageOrder: number;
+    discounts: number;
+    refunded: number;
+    cancelled: number;
+  };
+  /** Every day in the range, including days without orders. */
+  byDay: { day: string; revenue: number; orders: number }[];
+  topProducts: { name: string; quantity: number; revenue: number }[];
+  byPayment: { method: string; orders: number; revenue: number }[];
+  canExport: boolean;
+}
+
 // ── Admin: settings ────────────────────────────────────────────────────────
 
 export interface AdminShippingRate {

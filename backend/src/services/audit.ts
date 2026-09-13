@@ -55,6 +55,7 @@ export type AuditAction =
   | 'shipping.update'
   | 'tax.update'
   | 'data_request.handle'
+  | 'report.export'
   | 'auth.password_change';
 
 export interface AuditActor {
