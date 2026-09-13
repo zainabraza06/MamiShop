@@ -1,4 +1,5 @@
 import type { StorefrontShell } from '@momishop/shared/api-types';
+import { AssistantWidget } from '@/components/assistant/assistant-widget';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { apiGet } from '@/lib/api';
@@ -29,6 +30,8 @@ export default async function StorefrontLayout({ children }: { children: React.R
       </main>
 
       <SiteFooter categories={categories} />
+
+      <AssistantWidget isSignedIn={isSignedIn} />
     </div>
   );
 }

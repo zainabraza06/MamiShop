@@ -625,6 +625,28 @@ export const manualOrderSchema = z.object({
     .min(1, 'Add at least one item.'),
 });
 
+// ── Shopping assistant ──────────────────────────────────────────────────────
+
+/**
+ * A conversation with the shopping assistant. The browser keeps the history
+ * and sends it back each turn, so it is bounded: a long chat costs more with
+ * every message, and the assistant only needs the recent turns.
+ */
+export const assistantChatSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: multilineText(2000, 'Message').pipe(z.string().min(1, 'Type a message.')),
+      }),
+    )
+    .min(1)
+    .max(20)
+    .refine((messages) => messages[messages.length - 1].role === 'user', {
+      message: 'The last message must be yours.',
+    }),
+});
+
 // ── Inferred types ───────────────────────────────────────────────────────────
 
 export type LoginInput = z.infer<typeof loginSchema>;

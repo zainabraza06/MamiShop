@@ -12,6 +12,7 @@ import { adminCustomersRouter } from './admin-customers';
 import { adminModerationRouter } from './admin-moderation';
 import { adminOrdersRouter } from './admin-orders';
 import { adminReportsRouter } from './admin-reports';
+import { assistantRouter } from './assistant';
 import { authRouter } from './auth';
 import { cartRouter } from './cart';
 import { catalogueRouter } from './catalogue';
@@ -35,6 +36,7 @@ apiRouter.use(
   storefrontRouter,
   catalogueRouter,
   pagesRouter,
+  assistantRouter,
   cartRouter,
   checkoutRouter,
   ordersRouter,

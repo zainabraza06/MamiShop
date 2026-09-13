@@ -72,6 +72,8 @@ services:
       # Optional integrations. Each degrades gracefully when unset: email and
       # SMS log instead of sending, and without Redis the API falls back to
       # per-process rate limiting (fine on one instance, not on several).
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM

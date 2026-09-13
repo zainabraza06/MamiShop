@@ -1090,3 +1090,23 @@ export interface AdminDashboard {
     product: { name: string; slug: string };
   }[];
 }
+
+// ── Shopping assistant ──────────────────────────────────────────────────────
+
+export interface AssistantProduct {
+  slug: string;
+  name: string;
+  price: number;
+  compareAtPrice: number | null;
+  currency: string;
+  imageUrl: string | null;
+  imageAlt: string | null;
+}
+
+export interface AssistantReply {
+  reply: string;
+  /** Products the assistant looked at this turn, shown as cards under the reply. */
+  products: AssistantProduct[];
+  /** Set when the shop has nothing that fits and a custom piece is the way forward. */
+  customRequest: { summary: string } | null;
+}
