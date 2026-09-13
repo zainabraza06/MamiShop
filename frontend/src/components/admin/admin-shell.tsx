@@ -111,11 +111,16 @@ export function AdminShell({
       <aside
         id="admin-navigation"
         className={cn(
-          'fixed inset-y-0 start-0 z-50 w-64 shrink-0 border-e bg-background lg:static lg:block',
-          !mobileOpen && 'hidden lg:block',
+          // A column exactly the window's height: the links scroll inside it and
+          // the account box sits below them. The account box used to be
+          // absolutely positioned, so once the links outgrew a short window it
+          // was drawn on top of them.
+          'fixed inset-y-0 start-0 z-50 flex w-64 shrink-0 flex-col border-e bg-background',
+          'lg:sticky lg:top-0 lg:h-dvh',
+          !mobileOpen && 'hidden lg:flex',
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b px-4">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
           <Link href="/admin" className="font-serif text-lg font-semibold">
             MomiShop
             <span className="ms-1 text-xs font-normal text-muted-foreground">admin</span>
@@ -131,7 +136,7 @@ export function AdminShell({
           </Button>
         </div>
 
-        <nav aria-label="Admin" className="p-3">
+        <nav aria-label="Admin" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
           <ul className="space-y-0.5">
             {visible.map((item) => {
               const Icon = item.icon;
@@ -167,7 +172,7 @@ export function AdminShell({
           </ul>
         </nav>
 
-        <div className="absolute inset-x-0 bottom-0 border-t p-3">
+        <div className="shrink-0 border-t p-3">
           <p className="truncate px-3 text-sm font-medium">{user.name ?? user.email}</p>
           <p className="truncate px-3 text-xs text-muted-foreground">
             {user.role.replace('_', ' ').toLowerCase()}

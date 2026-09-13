@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForHydration } from './helpers';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
@@ -166,9 +167,10 @@ test.describe('mobile filters', () => {
     await page.goto('/products');
 
     const toggle = page.getByRole('button', { name: /^Filters/ });
-    await toggle.click();
-
     const panel = page.locator('#product-filters');
+    // Wait for hydration, then tap once: see waitForHydration.
+    await waitForHydration(page, toggle);
+    await toggle.click();
     await expect(panel).toBeVisible();
 
     // Categories belong to the site navigation, not this panel.
@@ -186,5 +188,45 @@ test.describe('mobile filters', () => {
     await expect(toggle).toBeInViewport();
     await expect(page.getByRole('button', { name: 'Filters (1)' })).toBeVisible();
     await expect(page.getByText(/^[1-9]\d* pieces?$/)).toBeVisible();
+  });
+});
+
+test.describe('admin sidebar', () => {
+  // A laptop-height window: short enough that the links outgrow the sidebar.
+  test.use({ viewport: { width: 1280, height: 620 } });
+
+  test('the account box never covers a navigation link', async ({ page }) => {
+    const signIn = await page.request.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(signIn.status()).toBe(200);
+
+    await page.goto('/admin');
+
+    const nav = page.getByRole('navigation', { name: 'Admin' });
+    const links = nav.getByRole('link');
+    expect(await links.count()).toBeGreaterThan(8);
+
+    // Each link, once scrolled into view, is the topmost element at its own
+    // centre: nothing is drawn over it.
+    for (const link of await links.all()) {
+      await link.scrollIntoViewIfNeeded();
+      const box = await link.boundingBox();
+      expect(box).not.toBeNull();
+
+      const covered = await page.evaluate(
+        ({ x, y }) => {
+          const hit = document.elementFromPoint(x, y);
+          return hit ? !hit.closest('nav[aria-label="Admin"]') : true;
+        },
+        { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 },
+      );
+      expect(covered, `${await link.textContent()} is covered`).toBe(false);
+    }
+
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeInViewport();
   });
 });

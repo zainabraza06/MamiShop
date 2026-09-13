@@ -20,6 +20,18 @@ async function fillAbayaMeasurements(page: Page) {
   await page.getByLabel('Sleeve length', { exact: false }).fill('23');
 }
 
+/** Every product the seed publishes, for tests that need one to themselves. */
+const ACTIVE_SEED_SKUS = [
+  'MS-W-0001',
+  'MS-W-0002',
+  'MS-A-0001',
+  'MS-A-0002',
+  'MS-S-0001',
+  'MS-S-0002',
+  'MS-G-0001',
+  'MS-B-0001',
+];
+
 test.describe('storefront browsing', () => {
   test('the homepage loads and links into the catalogue', async ({ page }) => {
     await page.goto('/');
@@ -451,12 +463,14 @@ test.describe('admin', () => {
     await main.getByRole('button', { name: 'Create filter' }).click();
     await expect(main.getByRole('textbox', { name: `Rename ${filterName}` })).toBeVisible();
 
-    // A different product per project, so the two runs never save over each other.
-    await page.goto('/admin/products?status=ACTIVE');
-    await main
-      .locator('table a')
-      .nth(testInfo.project.name === 'mobile' ? 1 : 0)
-      .click();
+    // A product no other running test is editing. Saving replaces a product's
+    // filter tags wholesale, so two tests on one product overwrite each other
+    // (or one saves an option the other has just deleted). parallelIndex is
+    // unique among tests running at the same moment, across projects and
+    // repeats alike.
+    const sku = ACTIVE_SEED_SKUS[testInfo.parallelIndex % ACTIVE_SEED_SKUS.length];
+    await page.goto(`/admin/products?q=${sku}`);
+    await main.locator('table a').first().click();
     await expect(main.getByRole('heading', { level: 1 })).toBeVisible();
 
     await main.getByRole('group', { name: filterName }).getByLabel('Eid').check();
@@ -464,11 +478,14 @@ test.describe('admin', () => {
     await expect(page.getByText('Product saved.')).toBeVisible();
 
     try {
+      // The shopper half runs at desktop width, where the panel is always open.
+      // What this test checks is admin tag -> shop filter; opening the panel
+      // on a phone has its own test ("mobile filters").
+      await page.setViewportSize({ width: 1280, height: 900 });
       await page.goto('/products');
-      const toggle = page.getByRole('button', { name: /^Filters/ });
-      if (await toggle.isVisible()) await toggle.click();
-
       const panel = page.locator('#product-filters');
+      await expect(panel).toBeVisible();
+
       const group = panel.getByRole('group', { name: filterName });
       await expect(group).toBeVisible();
       // Only options some product carries are offered.
