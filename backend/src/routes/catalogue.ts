@@ -10,6 +10,7 @@ import { parseQuery } from '../http/validate';
 import {
   getCategoryBySlug,
   getCategoryTree,
+  getFilterFacets,
   getProductBySlug,
   getProductReviews,
   getRatingBreakdown,
@@ -44,6 +45,26 @@ catalogueRouter.get('/products', async (req, res) => {
   // string and contains no per-user data.
   res.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
   res.json(result);
+});
+
+const facetScopeSchema = z.object({
+  category: z.string().trim().max(96).optional(),
+  q: z.string().trim().max(120).optional(),
+});
+
+/**
+ * The colours, fabrics and price range the filter panel offers.
+ *
+ * Registered before `/products/:slug`, which would otherwise read "facets" as
+ * a product slug and answer 404.
+ */
+catalogueRouter.get('/products/facets', async (req, res) => {
+  await rateLimit(req, 'api', sessionUserId(req));
+
+  const facets = await getFilterFacets(parseQuery(req, facetScopeSchema));
+
+  res.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+  res.json(facets);
 });
 
 /**

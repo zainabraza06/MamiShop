@@ -82,8 +82,32 @@ function storefrontWhere(filter: Partial<ProductFilter>): Prisma.ProductWhereInp
     };
   }
 
-  if (filter.fabric) {
-    where.fabric = { equals: filter.fabric, mode: 'insensitive' };
+  // Conditions that would each need their own OR are collected under AND, so a
+  // fabric filter and a text search cannot overwrite one another.
+  const and: Prisma.ProductWhereInput[] = [];
+
+  const fabrics = [...(filter.fabrics ?? []), ...(filter.fabric ? [filter.fabric] : [])];
+  if (fabrics.length > 0) {
+    and.push({
+      OR: fabrics.map((fabric) => ({ fabric: { equals: fabric, mode: 'insensitive' as const } })),
+    });
+  }
+
+  if (filter.colors && filter.colors.length > 0) {
+    // A product matches when any of its live colour options is one the
+    // shopper ticked. Retired options do not count: offering "Plum" and then
+    // showing a product that no longer comes in plum is a broken promise.
+    where.variants = {
+      some: {
+        kind: 'COLOR',
+        isActive: true,
+        OR: filter.colors.map((name) => ({ name: { equals: name, mode: 'insensitive' as const } })),
+      },
+    };
+  }
+
+  if (filter.fit) {
+    where.requiresMeasurements = filter.fit === 'made-to-measure';
   }
 
   const tags = Array.isArray(filter.tags) ? filter.tags : filter.tags ? [filter.tags] : [];
@@ -104,7 +128,75 @@ function storefrontWhere(filter: Partial<ProductFilter>): Prisma.ProductWhereInp
     ];
   }
 
+  if (and.length > 0) where.AND = and;
+
   return where;
+}
+
+export interface FilterFacets {
+  colors: { name: string; hex: string | null; count: number }[];
+  fabrics: { name: string; count: number }[];
+  price: { min: number; max: number };
+  fits: { madeToMeasure: number; readyMade: number };
+}
+
+/**
+ * The options worth offering in the filter panel.
+ *
+ * Scoped to what is being browsed — the category or the search — and
+ * deliberately not to the filters already applied, so ticking one colour does
+ * not make every other colour disappear. Only values some visible product has
+ * are returned: a filter that can only ever produce an empty page is a trap.
+ */
+export async function getFilterFacets(
+  scope: Pick<ProductFilter, 'category' | 'q'>,
+): Promise<FilterFacets> {
+  const where = storefrontWhere(scope);
+
+  const [colourRows, fabricRows, price, fitRows] = await Promise.all([
+    prisma.productVariant.groupBy({
+      by: ['name', 'colorHex'],
+      where: { kind: 'COLOR', isActive: true, product: where },
+      _count: { _all: true },
+    }),
+    prisma.product.groupBy({
+      by: ['fabric'],
+      where: { ...where, fabric: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.product.aggregate({ where, _min: { basePrice: true }, _max: { basePrice: true } }),
+    prisma.product.groupBy({
+      by: ['requiresMeasurements'],
+      where,
+      _count: { _all: true },
+    }),
+  ]);
+
+  // The same colour entered as "Black" on one product and "black" on another
+  // is one choice to a shopper, not two.
+  const colours = new Map<string, { name: string; hex: string | null; count: number }>();
+  for (const row of colourRows) {
+    const key = row.name.trim().toLowerCase();
+    const existing = colours.get(key);
+    if (existing) {
+      existing.count += row._count._all;
+      existing.hex ??= row.colorHex;
+    } else {
+      colours.set(key, { name: row.name.trim(), hex: row.colorHex, count: row._count._all });
+    }
+  }
+
+  return {
+    colors: [...colours.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+    fabrics: fabricRows
+      .flatMap((row) => (row.fabric ? [{ name: row.fabric, count: row._count._all }] : []))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    price: { min: price._min.basePrice ?? 0, max: price._max.basePrice ?? 0 },
+    fits: {
+      madeToMeasure: fitRows.find((row) => row.requiresMeasurements)?._count._all ?? 0,
+      readyMade: fitRows.find((row) => !row.requiresMeasurements)?._count._all ?? 0,
+    },
+  };
 }
 
 export async function listProducts(filter: ProductFilter): Promise<ProductListResult> {

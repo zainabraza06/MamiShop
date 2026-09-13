@@ -70,6 +70,15 @@ export interface ProductListResponse {
   total: number;
 }
 
+/** The choices the filter panel offers for the category or search in view. */
+export interface ProductFacets {
+  colors: { name: string; hex: string | null; count: number }[];
+  fabrics: { name: string; count: number }[];
+  /** Minor units. */
+  price: { min: number; max: number };
+  fits: { madeToMeasure: number; readyMade: number };
+}
+
 export interface ProductVariant {
   id: string;
   sku: string;

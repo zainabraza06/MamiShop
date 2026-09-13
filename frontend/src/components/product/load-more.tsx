@@ -4,7 +4,6 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/product/product-card';
 import type { ProductCard as ProductCardData } from '@momishop/shared/api-types';
-import type { ProductFilter } from '@momishop/shared/validation';
 
 /**
  * Cursor-based "load more".
@@ -18,11 +17,12 @@ import type { ProductFilter } from '@momishop/shared/validation';
  */
 export function LoadMore({
   initialCursor,
-  filter,
+  query,
   initialCount,
 }: {
   initialCursor: string;
-  filter: ProductFilter;
+  /** The applied filter as a query string, without a cursor. */
+  query: string;
   initialCount: number;
 }) {
   const [items, setItems] = React.useState<ProductCardData[]>([]);
@@ -37,12 +37,9 @@ export function LoadMore({
     setError(null);
 
     try {
-      const params = new URLSearchParams();
-      if (filter.category) params.set('category', filter.category);
-      if (filter.q) params.set('q', filter.q);
-      if (filter.minPrice !== undefined) params.set('minPrice', String(filter.minPrice));
-      if (filter.maxPrice !== undefined) params.set('maxPrice', String(filter.maxPrice));
-      params.set('sort', filter.sort);
+      // The whole applied filter travels with the request. Rebuilding it field
+      // by field here dropped fabric and tags, so page two ignored them.
+      const params = new URLSearchParams(query);
       params.set('cursor', cursor);
 
       const response = await fetch(`/api/products?${params}`);

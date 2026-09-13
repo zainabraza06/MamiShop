@@ -288,6 +288,18 @@ export const contactSchema = z.object({
 
 // ── Search & filtering ───────────────────────────────────────────────────────
 
+/**
+ * A repeatable query-string value. `?colors=Black&colors=Navy` arrives as an
+ * array but `?colors=Black` as a plain string; both become an array here so
+ * nothing downstream has to care which the browser sent.
+ */
+const queryList = (maxLength: number) =>
+  z.preprocess(
+    (value) =>
+      value === undefined || value === '' ? undefined : Array.isArray(value) ? value : [value],
+    z.array(z.string().trim().min(1).max(maxLength)).max(20).optional(),
+  );
+
 export const productFilterSchema = z.object({
   q: z.string().trim().max(120).optional(),
   category: z.string().trim().max(96).optional(),
@@ -295,6 +307,10 @@ export const productFilterSchema = z.object({
   maxPrice: z.coerce.number().int().min(0).optional(),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
   fabric: z.string().trim().max(60).optional(),
+  fabrics: queryList(60),
+  colors: queryList(40),
+  /** Stitched to the shopper's measurements, or sold ready-made. */
+  fit: z.enum(['made-to-measure', 'ready-made']).optional(),
   sort: z.enum(['newest', 'price-asc', 'price-desc', 'rating', 'popular']).default('newest'),
   cursor: z.string().max(64).optional(),
   limit: z.coerce.number().int().min(1).max(60).default(24),

@@ -162,7 +162,7 @@ test.describe('mobile menu', () => {
 test.describe('mobile filters', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('choosing a category closes the panel and shows the results', async ({ page }) => {
+  test('filters wait for Apply, then close and show the results', async ({ page }) => {
     await page.goto('/products');
 
     const toggle = page.getByRole('button', { name: /^Filters/ });
@@ -171,12 +171,20 @@ test.describe('mobile filters', () => {
     const panel = page.locator('#product-filters');
     await expect(panel).toBeVisible();
 
-    const option = panel.getByRole('button', { name: 'Abayas', exact: true });
-    await option.click();
+    // Categories belong to the site navigation, not this panel.
+    await expect(panel.getByRole('button', { name: 'Abayas', exact: true })).toHaveCount(0);
 
-    // The URL changing is not enough: the panel used to stay open over it.
-    await page.waitForURL(/[?&]category=abayas/);
+    await panel.getByText('Black', { exact: true }).click();
+
+    // Ticking a colour alone changes nothing until it is applied.
+    await expect(page).not.toHaveURL(/colors=/);
+
+    await panel.getByRole('button', { name: 'Apply filters' }).click();
+
+    await page.waitForURL(/[?&]colors=Black/);
     await expect(panel).toBeHidden();
     await expect(toggle).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Filters (1)' })).toBeVisible();
+    await expect(page.getByText(/^[1-9]\d* pieces?$/)).toBeVisible();
   });
 });

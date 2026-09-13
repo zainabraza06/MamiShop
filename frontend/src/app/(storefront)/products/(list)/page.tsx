@@ -2,10 +2,15 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { PackageSearch } from 'lucide-react';
-import type { CategoryDetail, CategoryNode, ProductListResponse } from '@momishop/shared/api-types';
+import type {
+  CategoryDetail,
+  ProductFacets,
+  ProductListResponse,
+} from '@momishop/shared/api-types';
 import { productFilterSchema, type ProductFilter } from '@momishop/shared/validation';
 import { ProductCard } from '@/components/product/product-card';
 import { ProductFilters } from '@/components/product/product-filters';
+import { ProductSort } from '@/components/product/product-sort';
 import { LoadMore } from '@/components/product/load-more';
 import { Breadcrumbs } from '@/components/layout/breadcrumbs';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -82,13 +87,24 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   const parsed = productFilterSchema.safeParse(raw);
   const filter = parsed.success ? parsed.data : productFilterSchema.parse({});
 
-  const [{ items, nextCursor, total }, { categories }, categoryResult] = await Promise.all([
+  // Facets follow what is being browsed (category or search) but not the
+  // filters themselves, so ticking one colour leaves the others on offer.
+  const facetScope = new URLSearchParams();
+  if (filter.category) facetScope.set('category', filter.category);
+  if (filter.q) facetScope.set('q', filter.q);
+
+  const [{ items, nextCursor, total }, facets, categoryResult] = await Promise.all([
     apiGet<ProductListResponse>(`/products?${toQuery(filter)}`),
-    apiGet<{ categories: CategoryNode[] }>('/categories'),
+    apiGet<ProductFacets>(`/products/facets?${facetScope}`),
     filter.category ? getCategory(filter.category) : Promise.resolve(null),
   ]);
 
   const category = categoryResult?.category ?? null;
+
+  // The applied filter, without a cursor. Keys the filter panel so an
+  // unapplied draft is discarded when the URL changes underneath it (back
+  // button, a shared link), and gives "Load more" the whole filter to repeat.
+  const filterKey = toQuery({ ...filter, cursor: undefined });
   const heading = category?.name ?? (filter.q ? `Results for “${filter.q}”` : 'All products');
 
   return (
@@ -113,9 +129,14 @@ export default async function ProductsPage({ searchParams }: PageProps) {
         {category?.description && (
           <p className="mt-2 max-w-prose text-muted-foreground">{category.description}</p>
         )}
-        <p aria-live="polite" className="mt-2 text-sm text-muted-foreground">
-          {total} piece{total === 1 ? '' : 's'}
-        </p>
+        <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+          <p aria-live="polite" className="text-sm text-muted-foreground">
+            {total} piece{total === 1 ? '' : 's'}
+          </p>
+          <Suspense fallback={null}>
+            <ProductSort value={filter.sort} />
+          </Suspense>
+        </div>
       </div>
 
       {/* Subcategory shortcuts */}
@@ -135,7 +156,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[240px_1fr]">
         <Suspense fallback={null}>
-          <ProductFilters categories={categories} current={filter} />
+          <ProductFilters key={filterKey} facets={facets} current={filter} />
         </Suspense>
 
         <div>
@@ -159,7 +180,11 @@ export default async function ProductsPage({ searchParams }: PageProps) {
               </div>
 
               {nextCursor && (
-                <LoadMore initialCursor={nextCursor} filter={filter} initialCount={items.length} />
+                <LoadMore
+                  initialCursor={nextCursor}
+                  query={filterKey}
+                  initialCount={items.length}
+                />
               )}
             </>
           )}
