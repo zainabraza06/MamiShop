@@ -605,6 +605,55 @@ export interface AdminCategory {
   productCount: number;
 }
 
+// ── Admin: settings ────────────────────────────────────────────────────────
+
+export interface AdminShippingRate {
+  id: string;
+  zoneId: string;
+  name: string;
+  description: string | null;
+  /** Minor units. */
+  amount: number;
+  /** Order subtotal, in minor units, at or above which delivery is free. */
+  freeAbove: number | null;
+  codSurcharge: number;
+  minDays: number;
+  maxDays: number;
+  isActive: boolean;
+  position: number;
+}
+
+export interface AdminShippingZone {
+  id: string;
+  name: string;
+  country: string;
+  cities: string[];
+  states: string[];
+  priority: number;
+  isActive: boolean;
+  rates: AdminShippingRate[];
+}
+
+export interface AdminTaxRule {
+  id: string;
+  name: string;
+  country: string;
+  state: string | null;
+  taxClass: string;
+  /** Basis points: 1700 is 17%. */
+  rateBps: number;
+  isInclusive: boolean;
+  priority: number;
+  isActive: boolean;
+}
+
+export interface AdminSettings {
+  zones: AdminShippingZone[];
+  taxRules: AdminTaxRule[];
+  canShipping: boolean;
+  canTax: boolean;
+}
+
 // ── Admin: content ─────────────────────────────────────────────────────────
 
 export interface AdminAnnouncement {

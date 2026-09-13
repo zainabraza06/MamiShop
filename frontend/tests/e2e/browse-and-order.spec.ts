@@ -601,6 +601,53 @@ test.describe('admin', () => {
       }
     }
   });
+  test('an admin can add a delivery zone and give it a delivery option', async ({
+    page,
+  }, testInfo) => {
+    const signIn = await page.request.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(signIn.status()).toBe(200);
+
+    // A made-up city, so no real checkout is routed to this zone meanwhile.
+    const stamp = `${Date.now()}${testInfo.parallelIndex}`;
+    const zoneName = `E2E Zone ${stamp}`;
+    const main = page.locator('#main-content');
+
+    try {
+      await page.goto('/admin/settings');
+      const addZone = main
+        .getByRole('heading', { name: 'Add a delivery zone' })
+        .locator('..')
+        .locator('..');
+      await addZone.getByRole('textbox', { name: /^Zone name/ }).fill(zoneName);
+      await addZone.getByRole('textbox', { name: /^Cities/ }).fill(`E2E City ${stamp}`);
+      await addZone.getByRole('button', { name: 'Add zone' }).click();
+
+      // A zone without options is flagged, because shoppers there cannot check out.
+      const zoneCard = main
+        .getByRole('heading', { name: new RegExp(zoneName) })
+        .locator('..')
+        .locator('..');
+      await expect(zoneCard.getByText(/no options/)).toBeVisible();
+
+      await zoneCard.getByText(`Add a delivery option to ${zoneName}`).click();
+      await zoneCard.getByRole('textbox', { name: /^Option name/ }).fill('Standard');
+      await zoneCard.getByRole('textbox', { name: /^Price \(Rs\)/ }).fill('250');
+      await zoneCard.getByRole('button', { name: 'Add option' }).click();
+
+      await expect(zoneCard.getByText(/no options/)).toHaveCount(0);
+      await expect(zoneCard.getByText('Rs 250')).toBeVisible();
+    } finally {
+      const settings = await page.request.get('/api/admin/settings');
+      const { zones } = (await settings.json()) as { zones: { id: string; name: string }[] };
+      const created = zones.find((zone) => zone.name === zoneName);
+      if (created) await page.request.delete(`/api/admin/shipping-zones/${created.id}`);
+    }
+  });
 });
 
 test.describe('operational endpoints', () => {
