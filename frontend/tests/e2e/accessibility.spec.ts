@@ -142,4 +142,19 @@ test.describe('mobile menu', () => {
     await expect(panel).toBeHidden();
     await expect(page.getByRole('button', { name: 'Open menu' })).toBeFocused();
   });
+
+  test('closes when a category is tapped from a listing page', async ({ page }) => {
+    // Already on /products: the next link changes only the query string,
+    // which is the case that used to leave the panel covering the new page.
+    await page.goto('/products');
+    await page.getByRole('button', { name: 'Open menu' }).click();
+
+    const panel = page.locator('#mobile-navigation');
+    const link = panel.getByRole('link').nth(1);
+    const href = await link.getAttribute('href');
+    await link.click();
+
+    await page.waitForURL((url) => url.pathname + url.search === href);
+    await expect(panel).toBeHidden();
+  });
 });

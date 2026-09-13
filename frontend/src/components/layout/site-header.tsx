@@ -209,7 +209,17 @@ export function SiteHeader({ categories, cartCount, isSignedIn, announcement }: 
             style={{ top: panelTop }}
             className="fixed inset-x-0 bottom-0 z-50 overflow-y-auto overscroll-contain border-t bg-background lg:hidden"
           >
-            <nav aria-label="Mobile" className="container py-6">
+            <nav
+              aria-label="Mobile"
+              className="container py-6"
+              // Every category link shares the /products path and differs only
+              // in its query string, so the pathname check above never fires
+              // for them: the page changed underneath a panel that stayed open.
+              // Closing on the tap itself covers every link in the panel.
+              onClick={(event) => {
+                if ((event.target as HTMLElement).closest('a')) setMobileOpen(false);
+              }}
+            >
               <ul className="space-y-1">
                 {categories.map((category) => (
                   <li key={category.id}>
