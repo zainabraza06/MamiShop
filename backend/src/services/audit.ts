@@ -39,6 +39,7 @@ export type AuditAction =
   | 'coupon.create'
   | 'coupon.update'
   | 'coupon.delete'
+  | 'custom_request.update'
   | 'review.moderate'
   | 'customer.update'
   | 'customer.suspend'

@@ -329,6 +329,56 @@ export const productFilterSchema = z.object({
 
 export type ProductFilter = z.infer<typeof productFilterSchema>;
 
+// ── Custom requests ─────────────────────────────────────────────────────────
+
+/**
+ * Free text where line breaks matter: a chat message or a description of a
+ * dress. `safeText` strips every control character, newlines included, which
+ * would turn a carefully laid-out description into one run-on line. This keeps
+ * newlines and tabs and removes the rest. It is rendered as text, never HTML.
+ */
+const multilineText = (max: number, label: string) =>
+  z
+    .string()
+    .max(max, `${label} cannot exceed ${max} characters.`)
+    .transform((value) =>
+      value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim(),
+    );
+
+/** Photos attached to a request or message. The API checks they are our own uploads. */
+const attachmentsSchema = z
+  .array(z.string().trim().url().startsWith('https://', 'Upload the photo here.'))
+  .max(6, 'Up to 6 photos at a time.')
+  .default([]);
+
+export const customRequestSchema = z.object({
+  title: safeText(120, 'Title').pipe(z.string().min(3, 'Give the piece a short name.')),
+  description: multilineText(4000, 'Description').pipe(
+    z.string().min(20, 'Describe the piece in a little more detail — at least 20 characters.'),
+  ),
+  template: z.enum(MEASUREMENT_TEMPLATES).optional(),
+  measurementProfileId: cuidSchema.optional(),
+  budget: z.coerce.number().int().min(0).max(100_000_000).optional(),
+  neededBy: z.coerce
+    .date()
+    .refine(
+      (date) => date.getTime() > Date.now() - 86_400_000,
+      'Choose a date that has not passed.',
+    )
+    .optional(),
+  attachments: attachmentsSchema,
+});
+
+export const chatMessageSchema = z
+  .object({
+    body: multilineText(4000, 'Message').default(''),
+    attachments: attachmentsSchema,
+  })
+  .refine((value) => value.body.length > 0 || value.attachments.length > 0, {
+    message: 'Write a message or add a photo.',
+    path: ['body'],
+  });
+
 // ── Admin ────────────────────────────────────────────────────────────────────
 
 export const productVariantSchema = z.object({

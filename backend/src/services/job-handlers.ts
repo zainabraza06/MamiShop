@@ -10,6 +10,8 @@ import {
   orderShippedEmail,
   sendEmail,
   welcomeEmail,
+  customRequestCustomerEmail,
+  customRequestStaffEmail,
 } from './email';
 import { sendSms, smsTemplates } from './sms';
 import { generateInvoicePdf, invoiceDataFromOrder } from './invoice';
@@ -215,10 +217,95 @@ async function handleInvoice(payload: Payload): Promise<void> {
 }
 
 /** Dispatch table. An unknown type throws, so it lands in DEAD for a human. */
+
+/** Where messages for the shop land. Falls back to the from-address so none is lost. */
+function shopInbox(): string {
+  return process.env.EMAIL_REPLY_TO ?? process.env.EMAIL_FROM ?? 'hello@momishop.pk';
+}
+
+const preview = (body: string | undefined) =>
+  body && body.length > 400 ? `${body.slice(0, 400)}…` : (body ?? 'Sent a photo.');
+
+/**
+ * Tells the shop a customer wrote. Sent a couple of minutes after the message
+ * and at most once per quiet spell (see the enqueue), and skipped entirely
+ * when someone has already opened the conversation in the admin.
+ */
+async function handleCustomRequestToStaff(payload: Payload): Promise<void> {
+  const requestId = requireString(payload, 'requestId');
+
+  const request = await prisma.customRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      id: true,
+      number: true,
+      title: true,
+      unreadByStaff: true,
+      user: { select: { name: true, email: true } },
+      messages: {
+        where: { authorRole: 'CUSTOMER' },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { body: true },
+      },
+      _count: { select: { messages: true } },
+    },
+  });
+
+  if (!request || !request.unreadByStaff) return;
+
+  const email = customRequestStaffEmail({
+    number: request.number,
+    title: request.title,
+    customerName: request.user.name ?? request.user.email,
+    preview: preview(request.messages[0]?.body),
+    isNew: request._count.messages <= 1,
+    adminUrl: absoluteUrl(`/admin/custom-requests/${request.id}`),
+  });
+
+  await sendEmail({ to: shopInbox(), ...email, replyTo: request.user.email });
+}
+
+/** Tells the customer the shop replied, unless they have already read it. */
+async function handleCustomRequestToCustomer(payload: Payload): Promise<void> {
+  const requestId = requireString(payload, 'requestId');
+
+  const request = await prisma.customRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      id: true,
+      number: true,
+      title: true,
+      unreadByCustomer: true,
+      user: { select: { name: true, email: true } },
+      messages: {
+        where: { authorRole: { in: ['STAFF', 'SYSTEM'] } },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { body: true },
+      },
+    },
+  });
+
+  if (!request || !request.unreadByCustomer) return;
+
+  const email = customRequestCustomerEmail({
+    number: request.number,
+    title: request.title,
+    customerName: request.user.name ?? 'Hello',
+    preview: preview(request.messages[0]?.body),
+    url: absoluteUrl(`/account/custom-requests/${request.id}`),
+  });
+
+  await sendEmail({ to: request.user.email, ...email });
+}
+
 const HANDLERS: Record<string, (payload: Payload) => Promise<void>> = {
   'email.order_confirmation': handleOrderConfirmation,
   'email.order_shipped': handleOrderShipped,
   'email.welcome': handleWelcome,
+  'email.custom_request_to_staff': handleCustomRequestToStaff,
+  'email.custom_request_to_customer': handleCustomRequestToCustomer,
   'email.abandoned_cart': handleAbandonedCart,
   'invoice.generate': handleInvoice,
   'sms.order_confirmed': (p) => handleSms(p, 'confirmed'),

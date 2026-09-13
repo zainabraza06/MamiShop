@@ -95,6 +95,14 @@ export function SiteFooter({ categories }: { categories: CategoryNode[] }) {
                   Contact us
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/account/custom-requests/new"
+                  className="underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  Request a custom piece
+                </Link>
+              </li>
             </ul>
           </nav>
 

@@ -409,7 +409,80 @@ export interface SessionUser {
 
 export interface AdminShell {
   user: { name: string | null; email: string; role: UserRole; permissions: string[] };
-  badges: { orders: number; returns: number; reviews: number };
+  badges: { orders: number; returns: number; reviews: number; requests: number };
+}
+
+// ── Custom requests ────────────────────────────────────────────────────────
+
+export type CustomRequestStatus =
+  'OPEN' | 'QUOTED' | 'ACCEPTED' | 'ORDERED' | 'DECLINED' | 'CLOSED';
+
+export interface ChatMessage {
+  id: string;
+  authorRole: 'CUSTOMER' | 'STAFF' | 'SYSTEM';
+  /** Only sent to staff. Customers see replies from "MomiShop", not a named employee. */
+  authorName: string | null;
+  body: string;
+  attachments: string[];
+  createdAt: IsoDateString;
+}
+
+export interface CustomRequestSummary {
+  id: string;
+  number: string;
+  title: string;
+  status: CustomRequestStatus;
+  lastMessageAt: IsoDateString;
+  unread: boolean;
+}
+
+export interface CustomRequestDetail {
+  id: string;
+  number: string;
+  title: string;
+  description: string;
+  template: string | null;
+  measurementUnit: 'INCH' | 'CM' | null;
+  measurementSnapshot: Record<string, number> | null;
+  /** Minor units. */
+  budget: number | null;
+  neededBy: IsoDateString | null;
+  status: CustomRequestStatus;
+  createdAt: IsoDateString;
+  messages: ChatMessage[];
+}
+
+export interface CustomRequestOptions {
+  profiles: { id: string; label: string; template: string; unit: 'INCH' | 'CM' }[];
+  uploadsEnabled: boolean;
+}
+
+export interface MessagesSince {
+  messages: ChatMessage[];
+  status: CustomRequestStatus;
+}
+
+export interface UploadSignature {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  folder: string;
+  allowedFormats: string;
+  signature: string;
+}
+
+export interface AdminCustomRequestSummary extends CustomRequestSummary {
+  customer: { name: string | null; email: string };
+  preview: string;
+}
+
+export interface AdminCustomRequestList {
+  items: AdminCustomRequestSummary[];
+  countsByStatus: Partial<Record<CustomRequestStatus, number>>;
+}
+
+export interface AdminCustomRequestDetail extends CustomRequestDetail {
+  customer: { id: string; name: string | null; email: string; phone: string | null };
 }
 
 // ── Admin: orders ──────────────────────────────────────────────────────────

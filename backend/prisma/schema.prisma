@@ -78,9 +78,11 @@ model User {
   referralReceived    Referral?            @relation("Referred")
   dataRequests        DataRequest[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  customRequests        CustomRequest[]
+  customRequestMessages CustomRequestMessage[] @relation("CustomRequestMessageAuthor")
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
 
   @@index([role, status])
   @@index([createdAt])
@@ -216,9 +218,10 @@ model MeasurementProfile {
   user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   items OrderItem[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  customRequests CustomRequest[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
 
   @@index([userId, isDefault])
   @@map("measurement_profiles")
@@ -1201,4 +1204,83 @@ model DataRequest {
 
   @@index([status, createdAt])
   @@map("data_requests")
+}
+
+// Custom requests ────────────────────────────────────────────────────────────
+
+/// Where a request for a piece that is not in the catalogue has got to.
+enum CustomRequestStatus {
+  OPEN
+  QUOTED
+  ACCEPTED
+  ORDERED
+  DECLINED
+  CLOSED
+}
+
+enum MessageAuthorRole {
+  CUSTOMER
+  STAFF
+  SYSTEM
+}
+
+/// A signed-in customer asking for something made that the shop does not list.
+model CustomRequest {
+  id     String @id @default(cuid())
+  /// Human-facing reference, e.g. CR-2026-000001.
+  number String @unique
+  userId String
+
+  title       String
+  description String          @db.Text
+  template    SizingTemplate?
+
+  /// A frozen copy of the measurements chosen when the request was made:
+  /// editing the saved profile later must not change what was discussed.
+  measurementProfileId String?
+  measurementUnit      MeasurementUnit?
+  measurementSnapshot  Json?
+
+  /// What the customer hopes to spend, in minor units. A guide, not a price.
+  budget   Int?
+  neededBy DateTime?
+
+  status CustomRequestStatus @default(OPEN)
+
+  /// Unread flags rather than read timestamps: the admin badge has to count
+  /// requests waiting on the shop, and a flag is a plain indexed filter where
+  /// comparing two timestamp columns is not.
+  unreadByStaff    Boolean  @default(true)
+  unreadByCustomer Boolean  @default(false)
+  lastMessageAt    DateTime @default(now())
+
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  measurementProfile MeasurementProfile?    @relation(fields: [measurementProfileId], references: [id], onDelete: SetNull)
+  messages           CustomRequestMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, lastMessageAt])
+  @@index([status, lastMessageAt])
+  @@index([unreadByStaff, status])
+  @@map("custom_requests")
+}
+
+model CustomRequestMessage {
+  id          String            @id @default(cuid())
+  requestId   String
+  authorId    String?
+  authorRole  MessageAuthorRole
+  body        String            @db.Text
+  /// Cloudinary addresses of photos attached to this message.
+  attachments String[]          @default([])
+
+  request CustomRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  author  User?         @relation("CustomRequestMessageAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId, createdAt])
+  @@map("custom_request_messages")
 }

@@ -26,7 +26,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' blob: data: https://res.cloudinary.com https://lh3.googleusercontent.com https://www.google-analytics.com https://www.facebook.com",
-  "connect-src 'self' https://api.stripe.com https://*.ingest.sentry.io https://www.google-analytics.com",
+  "connect-src 'self' https://api.cloudinary.com https://api.stripe.com https://*.ingest.sentry.io https://www.google-analytics.com",
   "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
   "object-src 'none'",
   "base-uri 'self'",

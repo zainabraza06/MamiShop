@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessagesSquare,
   Package,
   RotateCcw,
   Settings,
@@ -40,7 +41,7 @@ interface NavItem {
   label: string;
   icon: typeof LayoutDashboard;
   section: AdminSection;
-  badgeKey?: 'orders' | 'returns' | 'reviews';
+  badgeKey?: 'orders' | 'returns' | 'reviews' | 'requests';
 }
 
 const NAV: NavItem[] = [
@@ -51,6 +52,13 @@ const NAV: NavItem[] = [
     icon: ShoppingCart,
     section: 'orders',
     badgeKey: 'orders',
+  },
+  {
+    href: '/admin/custom-requests',
+    label: 'Custom requests',
+    icon: MessagesSquare,
+    section: 'requests',
+    badgeKey: 'requests',
   },
   { href: '/admin/products', label: 'Products', icon: Package, section: 'products' },
   { href: '/admin/filters', label: 'Filters', icon: SlidersHorizontal, section: 'products' },
@@ -77,7 +85,7 @@ export function AdminShell({
   children,
 }: {
   user: { name: string | null; email: string; role: string; permissions: string[] };
-  badges: { orders: number; returns: number; reviews: number };
+  badges: { orders: number; returns: number; reviews: number; requests: number };
   children: React.ReactNode;
 }) {
   const pathname = usePathname();

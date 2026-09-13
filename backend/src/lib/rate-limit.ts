@@ -44,6 +44,8 @@ export const RATE_LIMITS = {
   contact: { limit: 5, windowSeconds: 3600 },
   reviewCreate: { limit: 10, windowSeconds: 3600 },
   upload: { limit: 30, windowSeconds: 3600 },
+  /** A lively conversation, not a script flooding the owner's inbox. */
+  chatMessage: { limit: 30, windowSeconds: 300 },
   api: { limit: 120, windowSeconds: 60 },
 } as const satisfies Record<string, RateLimitRule>;
 

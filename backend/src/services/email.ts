@@ -411,3 +411,53 @@ export function contactEnquiryEmail(data: {
       .join('\n'),
   };
 }
+
+/** The owner is told a customer has asked for something made, or written again. */
+export function customRequestStaffEmail(data: {
+  number: string;
+  title: string;
+  customerName: string;
+  preview: string;
+  isNew: boolean;
+  adminUrl: string;
+}): { subject: string; html: string; text: string } {
+  const heading = data.isNew ? 'A new custom request' : 'A new message on a custom request';
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:22px;">${escapeHtml(heading)}</h1>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      ${escapeHtml(data.customerName)} · <strong>${escapeHtml(data.number)}</strong> · ${escapeHtml(data.title)}
+    </p>
+    <p style="margin:0;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(data.preview)}</p>
+    ${button(data.adminUrl, 'Open the conversation')}
+  `;
+
+  return {
+    subject: `${data.isNew ? 'New custom request' : 'New message'}: ${data.title} (${data.number})`,
+    html: shell(content, `${data.customerName} wrote about ${data.title}.`),
+    text: `${heading}\n\n${data.customerName} · ${data.number} · ${data.title}\n\n${data.preview}\n\n${data.adminUrl}`,
+  };
+}
+
+/** The customer is told the shop has replied. */
+export function customRequestCustomerEmail(data: {
+  number: string;
+  title: string;
+  customerName: string;
+  preview: string;
+  url: string;
+}): { subject: string; html: string; text: string } {
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:22px;">We have replied about your ${escapeHtml(data.title)}</h1>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      ${escapeHtml(data.customerName)}, there is a new message on request <strong>${escapeHtml(data.number)}</strong>.
+    </p>
+    <p style="margin:0;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(data.preview)}</p>
+    ${button(data.url, 'Read and reply')}
+  `;
+
+  return {
+    subject: `We replied about your ${data.title} — MomiShop`,
+    html: shell(content, `A new message about ${data.title}.`),
+    text: `${data.customerName}, there is a new message on request ${data.number}.\n\n${data.preview}\n\n${data.url}`,
+  };
+}

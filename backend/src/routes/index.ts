@@ -7,6 +7,7 @@ import { adminStaffRouter } from './admin-staff';
 import { adminCatalogueRouter } from './admin-catalogue';
 import { adminContentRouter } from './admin-content';
 import { adminCouponsRouter } from './admin-coupons';
+import { adminCustomRequestsRouter } from './admin-custom-requests';
 import { adminCustomersRouter } from './admin-customers';
 import { adminModerationRouter } from './admin-moderation';
 import { adminOrdersRouter } from './admin-orders';
@@ -16,6 +17,8 @@ import { cartRouter } from './cart';
 import { catalogueRouter } from './catalogue';
 import { checkoutRouter } from './checkout';
 import { contactRouter } from './contact';
+import { customRequestsRouter } from './custom-requests';
+import { uploadsRouter } from './uploads';
 import { cronRouter } from './cron';
 import { healthRouter } from './health';
 import { newsletterRouter } from './newsletter';
@@ -39,6 +42,8 @@ apiRouter.use(
   accountRouter,
   newsletterRouter,
   contactRouter,
+  customRequestsRouter,
+  uploadsRouter,
   wishlistRouter,
   adminRouter,
   adminSettingsRouter,
@@ -51,5 +56,6 @@ apiRouter.use(
   adminContentRouter,
   adminCustomersRouter,
   adminCouponsRouter,
+  adminCustomRequestsRouter,
   cronRouter,
 );

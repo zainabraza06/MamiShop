@@ -30,6 +30,8 @@ export type JobType =
   | 'email.review_request'
   | 'email.return_update'
   | 'email.low_stock_alert'
+  | 'email.custom_request_to_staff'
+  | 'email.custom_request_to_customer'
   | 'sms.order_confirmed'
   | 'sms.order_shipped'
   | 'sms.order_delivered'

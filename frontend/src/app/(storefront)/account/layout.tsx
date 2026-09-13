@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic';
 const NAV = [
   { href: '/account', label: 'Overview' },
   { href: '/account/wishlist', label: 'Saved pieces' },
+  { href: '/account/custom-requests', label: 'Custom requests' },
   { href: '/account/privacy', label: 'Your data' },
 ];
 

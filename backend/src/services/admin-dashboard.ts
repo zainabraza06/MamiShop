@@ -3,13 +3,17 @@ import { prisma } from '../lib/db';
 
 /** Counts for the admin sidebar badges: what actually needs a human today. */
 export async function getAdminBadges() {
-  const [orders, returns, reviews] = await Promise.all([
+  const [orders, returns, reviews, requests] = await Promise.all([
     prisma.order.count({ where: { status: { in: ['PENDING', 'CONFIRMED'] } } }),
     prisma.returnRequest.count({ where: { status: 'REQUESTED' } }),
     prisma.review.count({ where: { status: 'PENDING' } }),
+    // Conversations where the customer spoke last and nobody has looked since.
+    prisma.customRequest.count({
+      where: { unreadByStaff: true, status: { notIn: ['CLOSED', 'DECLINED'] } },
+    }),
   ]);
 
-  return { orders, returns, reviews };
+  return { orders, returns, reviews, requests };
 }
 
 /**

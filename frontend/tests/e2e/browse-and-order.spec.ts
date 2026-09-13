@@ -114,12 +114,23 @@ test.describe('checkout', () => {
       .click();
     await expect(page.getByRole('heading', { level: 1 })).toContainText(/noor nida/i);
 
-    // 2. Give measurements and add to the bag.
+    // 2. Pick a colour that is in stock. Every local run buys the default one,
+    //    so without this the suite eventually fails on a sold-out colour.
+    const soldOutSelected = page.getByRole('radio', { name: /sold out/i, checked: true });
+    if ((await soldOutSelected.count()) > 0) {
+      await page
+        .getByRole('radio', { disabled: false })
+        .filter({ hasNotText: /^(Inches|CM)$/ })
+        .first()
+        .click();
+    }
+
+    // 3. Give measurements and add to the bag.
     await fillAbayaMeasurements(page);
     await page.getByRole('button', { name: /add to bag/i }).click();
     await expect(page.getByText(/added to your bag/i)).toBeVisible();
 
-    // 3. The bag shows what will actually be cut.
+    // 4. The bag shows what will actually be cut.
     await page.goto('/cart');
     await expect(page.getByRole('heading', { name: /your bag/i })).toBeVisible();
     await expect(page.getByText(/Abaya length 56in/)).toBeVisible();
@@ -674,6 +685,64 @@ test.describe('admin', () => {
     expect(csv.status()).toBe(200);
     expect(csv.headers()['content-type']).toContain('text/csv');
     expect(await csv.text()).toContain('Order number,Placed (Pakistan time)');
+  });
+});
+
+test.describe('custom requests', () => {
+  test('a customer asks for a piece and the owner replies in the conversation', async ({
+    browser,
+  }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const customer = await browser.newContext({ baseURL, ...testInfo.project.use });
+    const owner = await browser.newContext({ baseURL, ...testInfo.project.use });
+
+    try {
+      const customerPage = await customer.newPage();
+      const ownerPage = await owner.newPage();
+
+      const customerLogin = await customerPage.request.post('/api/auth/login', {
+        data: { email: 'ayesha@example.com', password: 'Customer!2024' },
+      });
+      expect(customerLogin.status()).toBe(200);
+
+      const ownerLogin = await ownerPage.request.post('/api/auth/login', {
+        data: {
+          email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+          password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+        },
+      });
+      expect(ownerLogin.status()).toBe(200);
+
+      // The customer describes the piece.
+      const title = `Maroon lehnga ${Date.now()}${testInfo.parallelIndex}`;
+      await customerPage.goto('/account/custom-requests/new');
+      const form = customerPage.locator('#main-content');
+      await form.getByRole('textbox', { name: /^What would you like made/ }).fill(title);
+      await form
+        .getByRole('textbox', { name: /^Describe it/ })
+        .fill('Heavy zari work on the dupatta, full sleeves and a long flared skirt.');
+      await form.getByRole('button', { name: 'Send request' }).click();
+
+      await expect(customerPage.getByRole('heading', { name: new RegExp(title) })).toBeVisible();
+      const requestUrl = customerPage.url();
+      const requestId = requestUrl.split('/').pop();
+
+      // The owner finds it, marked new, and replies.
+      await ownerPage.goto('/admin/custom-requests');
+      await expect(ownerPage.getByRole('link', { name: new RegExp(title) })).toBeVisible();
+      await ownerPage.goto(`/admin/custom-requests/${requestId}`);
+      const reply = `Yes, we can make this. ${Date.now()}`;
+      await ownerPage.getByRole('textbox', { name: 'Message' }).fill(reply);
+      await ownerPage.getByRole('button', { name: 'Send', exact: true }).click();
+      await expect(ownerPage.getByText(reply)).toBeVisible();
+
+      // The customer's open page picks the reply up by itself, credited to the shop.
+      await expect(customerPage.getByText(reply)).toBeVisible({ timeout: 15_000 });
+      await expect(customerPage.getByText(/MomiShop ·/)).toBeVisible();
+    } finally {
+      await customer.close();
+      await owner.close();
+    }
   });
 });
 
