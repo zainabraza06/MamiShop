@@ -20,7 +20,7 @@
     "db:check-drift": "node scripts/check-migration-drift.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.125.0",
+    "@mistralai/mistralai": "^2.7.0",
     "@momishop/shared": "*",
     "@prisma/client": "^6.16.2",
     "@upstash/redis": "^1.35.3",

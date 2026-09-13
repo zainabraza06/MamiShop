@@ -24,7 +24,7 @@ import { __setAssistantClientForTesting } from '../src/services/assistant';
 const app = createApp({ appUrl: 'http://localhost:3000', corsOrigins: [], trustProxy: 'false' });
 const ORIGIN = 'http://localhost:3000';
 
-const create = vi.fn();
+const complete = vi.fn();
 
 const question = { messages: [{ role: 'user', content: 'Black abaya under 8000?' }] };
 
@@ -43,15 +43,33 @@ const card = {
   images: [{ url: 'https://res.cloudinary.com/x/noor.jpg', alt: 'Noor Abaya', blurHash: null }],
 };
 
-function message(stopReason: string, content: unknown[]) {
-  return { id: 'msg', role: 'assistant', stop_reason: stopReason, content };
+function callsTool(name: string, args: unknown) {
+  return {
+    choices: [
+      {
+        index: 0,
+        finishReason: 'tool_calls',
+        message: {
+          role: 'assistant',
+          content: '',
+          toolCalls: [{ id: 'call_1', function: { name, arguments: JSON.stringify(args) } }],
+        },
+      },
+    ],
+  };
+}
+
+function says(text: string) {
+  return {
+    choices: [{ index: 0, finishReason: 'stop', message: { role: 'assistant', content: text } }],
+  };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   __setStoreForTesting(null);
-  __setAssistantClientForTesting({ beta: { messages: { create } } } as never);
-  vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+  __setAssistantClientForTesting({ chat: { complete } } as never);
+  vi.stubEnv('MISTRAL_API_KEY', 'test-key');
 });
 
 afterEach(() => {
@@ -61,7 +79,7 @@ afterEach(() => {
 
 describe('switched off', () => {
   it('reports itself disabled and refuses to answer without a key', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', '');
+    vi.stubEnv('MISTRAL_API_KEY', '');
 
     const status = await request(app).get('/api/assistant/status');
     expect(status.body).toEqual({ enabled: false });
@@ -71,7 +89,7 @@ describe('switched off', () => {
       .set('Origin', ORIGIN)
       .send(question);
     expect(chat.status).toBe(503);
-    expect(create).not.toHaveBeenCalled();
+    expect(complete).not.toHaveBeenCalled();
   });
 });
 
@@ -83,40 +101,27 @@ describe('asking a question', () => {
       .send({ messages: [...question.messages, { role: 'assistant', content: 'Sure.' }] });
 
     expect(response.status).toBe(422);
-    expect(create).not.toHaveBeenCalled();
+    expect(complete).not.toHaveBeenCalled();
   });
 
   it('looks products up in the catalogue and shows the ones it names', async () => {
-    prismaMock.product.findMany
-      .mockResolvedValueOnce([card])
-      .mockResolvedValueOnce([
-        {
-          id: 'product_1',
-          fabric: 'Nida',
-          variants: [
-            { name: 'Black', kind: 'COLOR', priceDelta: 0, trackInventory: true, stockOnHand: 2, stockReserved: 2 },
-            { name: 'Maroon', kind: 'COLOR', priceDelta: 0, trackInventory: true, stockOnHand: 3, stockReserved: 0 },
-          ],
-        },
-      ]);
+    prismaMock.product.findMany.mockResolvedValueOnce([card]).mockResolvedValueOnce([
+      {
+        id: 'product_1',
+        fabric: 'Nida',
+        variants: [
+          { name: 'Black', kind: 'COLOR', priceDelta: 0, trackInventory: true, stockOnHand: 2, stockReserved: 2 },
+          { name: 'Maroon', kind: 'COLOR', priceDelta: 0, trackInventory: true, stockOnHand: 3, stockReserved: 0 },
+        ],
+      },
+    ]);
     prismaMock.product.count.mockResolvedValue(1);
 
-    create
+    complete
       .mockResolvedValueOnce(
-        message('tool_use', [
-          {
-            type: 'tool_use',
-            id: 'tool_1',
-            name: 'search_products',
-            input: { query: 'abaya', colors: ['Black'], max_price_rs: 8000 },
-          },
-        ]),
+        callsTool('search_products', { query: 'abaya', colors: ['Black'], max_price_rs: 8000 }),
       )
-      .mockResolvedValueOnce(
-        message('end_turn', [
-          { type: 'text', text: 'The Noor Abaya is on sale for Rs 7,500, but black is sold out.' },
-        ]),
-      );
+      .mockResolvedValueOnce(says('The Noor Abaya is on sale for Rs 7,500, but black is sold out.'));
 
     const response = await request(app)
       .post('/api/assistant/chat')
@@ -142,38 +147,22 @@ describe('asking a question', () => {
     expect(JSON.stringify(prismaMock.product.findMany.mock.calls[0][0].where)).toContain('800000');
 
     // The model saw live stock: black is fully reserved, maroon is not.
-    const toolResult = create.mock.calls[1][0].messages.at(-1).content[0];
-    expect(toolResult.tool_use_id).toBe('tool_1');
-    const found = JSON.parse(toolResult.content).products[0];
+    const second = complete.mock.calls[1][0];
+    expect(second.messages[0].role).toBe('system');
+    const toolMessage = second.messages.at(-1);
+    expect(toolMessage).toMatchObject({ role: 'tool', toolCallId: 'call_1', name: 'search_products' });
+    const found = JSON.parse(toolMessage.content).products[0];
     expect(found.options).toEqual([
       { name: 'Black', inStock: false },
       { name: 'Maroon', inStock: true },
     ]);
     expect(found.wasPrice).toBeDefined();
-
-    // Declined requests fall back to another model rather than failing.
-    expect(create.mock.calls[0][0]).toMatchObject({
-      model: 'claude-opus-5',
-      fallbacks: 'default',
-      betas: ['server-side-fallback-2026-07-01'],
-    });
   });
 
   it('offers a custom request when the shop has nothing that fits', async () => {
-    create
-      .mockResolvedValueOnce(
-        message('tool_use', [
-          {
-            type: 'tool_use',
-            id: 'tool_1',
-            name: 'offer_custom_request',
-            input: { summary: 'Green sharara with gota work' },
-          },
-        ]),
-      )
-      .mockResolvedValueOnce(
-        message('end_turn', [{ type: 'text', text: 'We can make one for you.' }]),
-      );
+    complete
+      .mockResolvedValueOnce(callsTool('offer_custom_request', { summary: 'Green sharara with gota work' }))
+      .mockResolvedValueOnce(says('We can make one for you.'));
 
     const response = await request(app)
       .post('/api/assistant/chat')
@@ -188,15 +177,9 @@ describe('asking a question', () => {
     prismaMock.product.findMany.mockRejectedValueOnce(new Error('database down'));
     prismaMock.product.count.mockResolvedValue(0);
 
-    create
-      .mockResolvedValueOnce(
-        message('tool_use', [
-          { type: 'tool_use', id: 'tool_1', name: 'search_products', input: { query: 'lawn' } },
-        ]),
-      )
-      .mockResolvedValueOnce(
-        message('end_turn', [{ type: 'text', text: 'I could not check just now.' }]),
-      );
+    complete
+      .mockResolvedValueOnce(callsTool('search_products', { query: 'lawn' }))
+      .mockResolvedValueOnce(says('I could not check just now.'));
 
     const response = await request(app)
       .post('/api/assistant/chat')
@@ -204,23 +187,11 @@ describe('asking a question', () => {
       .send(question);
 
     expect(response.status).toBe(200);
-    expect(create.mock.calls[1][0].messages.at(-1).content[0].is_error).toBe(true);
-  });
-
-  it('answers politely when the model declines', async () => {
-    create.mockResolvedValueOnce(message('refusal', []));
-
-    const response = await request(app)
-      .post('/api/assistant/chat')
-      .set('Origin', ORIGIN)
-      .send(question);
-
-    expect(response.status).toBe(200);
-    expect(response.body.reply).toContain('clothes');
+    expect(complete.mock.calls[1][0].messages.at(-1).content).toContain('lookup failed');
   });
 
   it('reports a model outage as a message, not a crash', async () => {
-    create.mockRejectedValueOnce(new Error('connection reset'));
+    complete.mockRejectedValueOnce(new Error('connection reset'));
 
     const response = await request(app)
       .post('/api/assistant/chat')

@@ -60,7 +60,9 @@ const schema = z.object({
   CLOUDINARY_API_SECRET: optional,
 
   /** Shopping assistant. Unset, the chat button stays hidden. */
-  ANTHROPIC_API_KEY: optional,
+  MISTRAL_API_KEY: optional,
+  /** Defaults to mistral-small-latest. */
+  MISTRAL_MODEL: optional,
 
   RESEND_API_KEY: optional,
   EMAIL_FROM: z.string().default('MomiShop <orders@momishop.pk>'),
