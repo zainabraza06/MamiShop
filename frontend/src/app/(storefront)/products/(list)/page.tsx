@@ -51,12 +51,7 @@ function toQuery(filter: ProductFilter): string {
  * an API deploy that lags behind the storefront's, shows the list with fewer
  * filter choices rather than an error page.
  */
-const NO_FACETS: ProductFacets = {
-  colors: [],
-  fabrics: [],
-  price: { min: 0, max: 0 },
-  fits: { madeToMeasure: 0, readyMade: 0 },
-};
+const NO_FACETS: ProductFacets = { filters: [] };
 
 /** Shared by the page and its metadata; deduplicated into one API call. */
 function getCategory(slug: string) {
@@ -109,7 +104,10 @@ export default async function ProductsPage({ searchParams }: PageProps) {
 
   const [{ items, nextCursor, total }, facets, categoryResult] = await Promise.all([
     apiGet<ProductListResponse>(`/products?${toQuery(filter)}`),
-    apiGet<ProductFacets>(`/products/facets?${facetScope}`).catch(() => NO_FACETS),
+    apiGet<ProductFacets>(`/products/facets?${facetScope}`)
+      // An API still on the previous release answers in an older shape.
+      .then((facets) => (Array.isArray(facets.filters) ? facets : NO_FACETS))
+      .catch(() => NO_FACETS),
     filter.category ? getCategory(filter.category) : Promise.resolve(null),
   ]);
 

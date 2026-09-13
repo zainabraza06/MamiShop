@@ -64,7 +64,7 @@ catalogueRouter.get('/products/facets', async (req, res) => {
   const facets = await getFilterFacets(parseQuery(req, facetScopeSchema));
 
   res.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-  res.json(facets);
+  res.json({ filters: facets });
 });
 
 /**

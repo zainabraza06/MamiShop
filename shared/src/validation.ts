@@ -293,12 +293,11 @@ export const contactSchema = z.object({
  * array but `?colors=Black` as a plain string; both become an array here so
  * nothing downstream has to care which the browser sent.
  */
+const asList = (value: unknown) =>
+  value === undefined || value === '' ? undefined : Array.isArray(value) ? value : [value];
+
 const queryList = (maxLength: number) =>
-  z.preprocess(
-    (value) =>
-      value === undefined || value === '' ? undefined : Array.isArray(value) ? value : [value],
-    z.array(z.string().trim().min(1).max(maxLength)).max(20).optional(),
-  );
+  z.preprocess(asList, z.array(z.string().trim().min(1).max(maxLength)).max(20).optional());
 
 export const productFilterSchema = z.object({
   q: z.string().trim().max(120).optional(),
@@ -311,6 +310,18 @@ export const productFilterSchema = z.object({
   colors: queryList(40),
   /** Stitched to the shopper's measurements, or sold ready-made. */
   fit: z.enum(['made-to-measure', 'ready-made']).optional(),
+  /** Custom filter choices as `filter:option` slug pairs, e.g. `occasion:eid`. */
+  attrs: z.preprocess(
+    asList,
+    z
+      .array(
+        z
+          .string()
+          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Unknown filter choice.'),
+      )
+      .max(20)
+      .optional(),
+  ),
   sort: z.enum(['newest', 'price-asc', 'price-desc', 'rating', 'popular']).default('newest'),
   cursor: z.string().max(64).optional(),
   limit: z.coerce.number().int().min(1).max(60).default(24),
@@ -362,6 +373,8 @@ export const productSchema = z.object({
   weightGrams: z.coerce.number().int().min(0).max(50_000).default(500),
   metaTitle: safeText(70, 'Meta title').optional(),
   metaDescription: safeText(160, 'Meta description').optional(),
+  /** Custom filter options the product is tagged with. */
+  filterOptionIds: z.array(cuidSchema).max(100).default([]),
   variants: z.array(productVariantSchema).default([]),
   images: z
     .array(

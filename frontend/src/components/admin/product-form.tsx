@@ -1,10 +1,15 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Trash2 } from 'lucide-react';
-import type { AdminCategory, AdminProductDetail } from '@momishop/shared/api-types';
+import type {
+  AdminCategory,
+  AdminProductDetail,
+  AdminStorefrontFilter,
+} from '@momishop/shared/api-types';
 import { MEASUREMENT_TEMPLATES } from '@momishop/shared/measurements';
 import { slugify } from '@momishop/shared/text';
 import { Button } from '@/components/ui/button';
@@ -70,9 +75,11 @@ function variantFrom(variant: AdminProductDetail['variants'][number]): VariantDr
 export function ProductForm({
   product,
   categories,
+  filters,
 }: {
   product: AdminProductDetail | null;
   categories: AdminCategory[];
+  filters: AdminStorefrontFilter[];
 }) {
   const router = useRouter();
   const isNew = product === null;
@@ -106,6 +113,11 @@ export function ProductForm({
   const [images, setImages] = React.useState<ImageDraft[]>(
     product?.images.map((image) => ({ url: image.url, alt: image.alt })) ?? [],
   );
+
+  const [filterOptionIds, setFilterOptionIds] = React.useState<string[]>(
+    product?.filterOptionIds ?? [],
+  );
+  const customFilters = filters.filter((filter) => filter.kind === 'ATTRIBUTE');
 
   const [errors, setErrors] = React.useState<{ field: string; message: string }[]>([]);
   const [isPending, setIsPending] = React.useState(false);
@@ -146,6 +158,7 @@ export function ProductForm({
       isFeatured,
       isNewArrival,
       tags: [],
+      filterOptionIds,
       variants: variants.map((variant, index) => ({
         ...(variant.id ? { id: variant.id } : {}),
         sku: variant.sku,
@@ -459,6 +472,56 @@ export function ProductForm({
                   </Button>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Shop filters</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {customFilters.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No custom filters yet.{' '}
+                  <Link href="/admin/filters" className="underline underline-offset-4">
+                    Create one
+                  </Link>{' '}
+                  — Occasion, say — and tick it here so shoppers can find this piece.
+                </p>
+              ) : (
+                customFilters.map((filter) => (
+                  <fieldset key={filter.id}>
+                    <legend className="mb-2 text-sm font-medium">{filter.label}</legend>
+                    {filter.options.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        No options yet — add them under Filters.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-x-5 gap-y-1">
+                        {filter.options.map((option) => (
+                          <label
+                            key={option.id}
+                            className="flex min-h-9 cursor-pointer items-center gap-2 text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              className="size-4 rounded border-input accent-primary"
+                              checked={filterOptionIds.includes(option.id)}
+                              onChange={() =>
+                                setFilterOptionIds((current) =>
+                                  current.includes(option.id)
+                                    ? current.filter((id) => id !== option.id)
+                                    : [...current, option.id],
+                                )
+                              }
+                            />
+                            {option.label}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </fieldset>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>

@@ -5,8 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * Storefront filtering.
  *
  * What matters: a colour filter that actually narrows by the product's live
- * colour options, a query string that works whether one value or several are
- * sent, and a facet list that only offers choices which can return something.
+ * colour options, custom filters that widen within a filter and narrow across
+ * filters, and a panel that follows the order and names staff set while only
+ * offering choices which can return something.
  */
 
 const prismaMock = vi.hoisted(() => ({
@@ -18,6 +19,8 @@ const prismaMock = vi.hoisted(() => ({
     aggregate: vi.fn(),
   },
   productVariant: { groupBy: vi.fn() },
+  storefrontFilter: { findMany: vi.fn() },
+  productFilterValue: { groupBy: vi.fn() },
 }));
 
 vi.mock('../src/lib/db', () => ({ prisma: prismaMock }));
@@ -71,15 +74,59 @@ describe('filtering the listing', () => {
     expect(where.OR).toBeDefined();
   });
 
+  it('widens within a custom filter and narrows across custom filters', async () => {
+    const response = await request(app).get(
+      '/api/products?attrs=occasion:eid&attrs=occasion:wedding&attrs=work:embroidered',
+    );
+
+    expect(response.status).toBe(200);
+    // Eid or Wedding, and Embroidered.
+    expect(lastWhere().AND).toEqual([
+      {
+        filterValues: {
+          some: { option: { slug: { in: ['eid', 'wedding'] }, filter: { slug: 'occasion' } } },
+        },
+      },
+      {
+        filterValues: {
+          some: { option: { slug: { in: ['embroidered'] }, filter: { slug: 'work' } } },
+        },
+      },
+    ]);
+  });
+
+  it('rejects a custom filter value that is not a filter:option pair', async () => {
+    const response = await request(app).get('/api/products?attrs=occasion');
+
+    expect(response.status).toBe(422);
+    expect(prismaMock.product.findMany).not.toHaveBeenCalled();
+  });
+
   it('never lets a filter reveal a draft or archived product', async () => {
-    await request(app).get('/api/products?colors=Black&fit=made-to-measure');
+    await request(app).get('/api/products?colors=Black&fit=made-to-measure&attrs=occasion:eid');
 
     expect(lastWhere()).toMatchObject({ status: 'ACTIVE', archivedAt: null });
   });
 });
 
-describe('the facet list', () => {
+describe('the filter panel', () => {
   beforeEach(() => {
+    // The order and names staff chose, deliberately not the default.
+    prismaMock.storefrontFilter.findMany.mockResolvedValue([
+      { kind: 'FABRIC', label: 'Fabric', slug: 'fabric', options: [] },
+      { kind: 'COLOR', label: 'Shade', slug: 'color', options: [] },
+      { kind: 'PRICE', label: 'Price (Rs)', slug: 'price', options: [] },
+      { kind: 'FIT', label: 'Fit', slug: 'fit', options: [] },
+      {
+        kind: 'ATTRIBUTE',
+        label: 'Occasion',
+        slug: 'occasion',
+        options: [
+          { id: 'opt_eid', label: 'Eid', slug: 'eid' },
+          { id: 'opt_wedding', label: 'Wedding', slug: 'wedding' },
+        ],
+      },
+    ]);
     prismaMock.productVariant.groupBy.mockResolvedValue([
       { name: 'Black', colorHex: '#14110F', _count: { _all: 3 } },
       { name: 'black', colorHex: null, _count: { _all: 1 } },
@@ -100,6 +147,9 @@ describe('the facet list', () => {
       _min: { basePrice: 150_000 },
       _max: { basePrice: 1_250_000 },
     });
+    prismaMock.productFilterValue.groupBy.mockResolvedValue([
+      { optionId: 'opt_eid', _count: { _all: 3 } },
+    ]);
   });
 
   it('is served by its own route rather than read as a product slug', async () => {
@@ -109,16 +159,61 @@ describe('the facet list', () => {
     expect(prismaMock.product.findFirst).not.toHaveBeenCalled();
   });
 
-  it('merges one colour spelled two ways, and drops products with no fabric', async () => {
+  it('follows the order and names staff set, and asks only for visible filters', async () => {
     const response = await request(app).get('/api/products/facets?category=abayas');
 
-    expect(response.body.colors).toEqual([
+    expect(response.body.filters.map((group: { label: string }) => group.label)).toEqual([
+      'Fabric',
+      'Shade',
+      'Price (Rs)',
+      'Fit',
+      'Occasion',
+    ]);
+    expect(prismaMock.storefrontFilter.findMany.mock.calls[0][0].where).toEqual({
+      isVisible: true,
+    });
+  });
+
+  it('merges one colour spelled two ways, and drops products with no fabric', async () => {
+    const response = await request(app).get('/api/products/facets');
+    const [fabric, colour, price, fit] = response.body.filters;
+
+    expect(fabric).toEqual({
+      kind: 'FABRIC',
+      label: 'Fabric',
+      fabrics: [{ name: 'Georgette', count: 2 }],
+    });
+    expect(colour.colors).toEqual([
       { name: 'Black', hex: '#14110F', count: 4 },
       { name: 'Navy', hex: '#1B2A3A', count: 2 },
     ]);
-    expect(response.body.fabrics).toEqual([{ name: 'Georgette', count: 2 }]);
-    expect(response.body.price).toEqual({ min: 150_000, max: 1_250_000 });
-    expect(response.body.fits).toEqual({ madeToMeasure: 4, readyMade: 2 });
+    expect(price).toMatchObject({ min: 150_000, max: 1_250_000 });
+    expect(fit).toMatchObject({ madeToMeasure: 4, readyMade: 2 });
+  });
+
+  it('offers only the custom options some product in view carries', async () => {
+    const response = await request(app).get('/api/products/facets');
+    const occasion = response.body.filters.at(-1);
+
+    expect(occasion).toEqual({
+      kind: 'ATTRIBUTE',
+      label: 'Occasion',
+      slug: 'occasion',
+      options: [{ label: 'Eid', slug: 'eid', count: 3 }],
+    });
+  });
+
+  it('leaves out a group with nothing to offer', async () => {
+    prismaMock.productFilterValue.groupBy.mockResolvedValue([]);
+    prismaMock.product.groupBy.mockImplementation(async (args: { by: string[] }) =>
+      args.by[0] === 'fabric' ? [] : [{ requiresMeasurements: true, _count: { _all: 6 } }],
+    );
+
+    const response = await request(app).get('/api/products/facets');
+    const kinds = response.body.filters.map((group: { kind: string }) => group.kind);
+
+    // No tagged products, no fabrics, and no choice to make between fits.
+    expect(kinds).toEqual(['COLOR', 'PRICE']);
   });
 
   it('is scoped to the category, not to the filters already applied', async () => {

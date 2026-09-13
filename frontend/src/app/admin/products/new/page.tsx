@@ -1,14 +1,21 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import type { AdminCategory } from '@momishop/shared/api-types';
+import type { AdminCategory, AdminStorefrontFilter } from '@momishop/shared/api-types';
 import { ProductForm } from '@/components/admin/product-form';
 import { apiGet } from '@/lib/api';
 
 export const metadata: Metadata = { title: 'New product' };
 
 export default async function NewProductPage() {
-  const { categories } = await apiGet<{ categories: AdminCategory[] }>('/admin/categories');
+  const [{ categories }, { filters }] = await Promise.all([
+    apiGet<{ categories: AdminCategory[] }>('/admin/categories'),
+    // Optional to editing: if filters cannot be loaded (an API a release
+    // behind), the form still works, just without the Shop filters section.
+    apiGet<{ filters: AdminStorefrontFilter[] }>('/admin/filters').catch(() => ({
+      filters: [] as AdminStorefrontFilter[],
+    })),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -26,7 +33,7 @@ export default async function NewProductPage() {
         </p>
       </div>
 
-      <ProductForm product={null} categories={categories} />
+      <ProductForm product={null} categories={categories} filters={filters} />
     </div>
   );
 }

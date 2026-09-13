@@ -70,13 +70,46 @@ export interface ProductListResponse {
   total: number;
 }
 
-/** The choices the filter panel offers for the category or search in view. */
+/** One group in the storefront filter panel. Price figures are minor units. */
+export type FacetGroup =
+  | { kind: 'COLOR'; label: string; colors: { name: string; hex: string | null; count: number }[] }
+  | { kind: 'PRICE'; label: string; min: number; max: number }
+  | { kind: 'FABRIC'; label: string; fabrics: { name: string; count: number }[] }
+  | { kind: 'FIT'; label: string; madeToMeasure: number; readyMade: number }
+  | {
+      kind: 'ATTRIBUTE';
+      label: string;
+      slug: string;
+      options: { label: string; slug: string; count: number }[];
+    };
+
+/**
+ * The filter panel for the category or search in view, in the order staff
+ * set. Groups with nothing to offer are left out.
+ */
 export interface ProductFacets {
-  colors: { name: string; hex: string | null; count: number }[];
-  fabrics: { name: string; count: number }[];
-  /** Minor units. */
-  price: { min: number; max: number };
-  fits: { madeToMeasure: number; readyMade: number };
+  filters: FacetGroup[];
+}
+
+export type FilterKind = FacetGroup['kind'];
+
+export interface AdminFilterOption {
+  id: string;
+  label: string;
+  slug: string;
+  position: number;
+  productCount: number;
+}
+
+export interface AdminStorefrontFilter {
+  id: string;
+  kind: FilterKind;
+  label: string;
+  slug: string;
+  position: number;
+  isVisible: boolean;
+  /** Always empty for built-in filters, whose choices come from product data. */
+  options: AdminFilterOption[];
 }
 
 export interface ProductVariant {
@@ -558,6 +591,8 @@ export interface AdminProductDetail {
   variants: AdminProductVariant[];
   images: { id: string; url: string; alt: string; position: number }[];
   category: { id: string; name: string };
+  /** Custom filter options this product is tagged with. */
+  filterOptionIds: string[];
 }
 
 export interface AdminCategory {

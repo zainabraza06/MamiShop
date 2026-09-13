@@ -14,10 +14,11 @@ import {
   RotateCcw,
   Settings,
   ShoppingCart,
+  SlidersHorizontal,
   Star,
   Tag,
-  Users,
   UserCog,
+  Users,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,7 @@ const NAV: NavItem[] = [
     badgeKey: 'orders',
   },
   { href: '/admin/products', label: 'Products', icon: Package, section: 'products' },
+  { href: '/admin/filters', label: 'Filters', icon: SlidersHorizontal, section: 'products' },
   {
     href: '/admin/returns',
     label: 'Returns',

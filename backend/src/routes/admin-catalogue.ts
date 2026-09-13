@@ -2,13 +2,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { categorySchema, productSchema, safeText } from '@momishop/shared/validation';
 import { prisma } from '../lib/db';
-import { ConflictError, NotFoundError } from '../lib/errors';
+import { ConflictError, NotFoundError, ValidationError } from '../lib/errors';
 import { isUniqueViolation } from '../lib/prisma-errors';
 import { requirePermission } from '../auth/current-user';
 import { ipHash } from '../http/request';
 import { parseBody, parseQuery } from '../http/validate';
 import { actorFrom, recordAudit } from '../services/audit';
 import { invalidateCatalogue } from '../lib/cache';
+import { slugify, uniqueSlug } from '@momishop/shared/text';
 
 /**
  * The catalogue, from the staff side.
@@ -126,11 +127,13 @@ adminCatalogueRouter.get('/admin/products/:id', async (req, res) => {
       variants: { orderBy: { position: 'asc' } },
       images: { orderBy: { position: 'asc' } },
       category: { select: { id: true, name: true } },
+      filterValues: { select: { optionId: true } },
     },
   });
 
   if (!product) throw new NotFoundError('Product');
-  res.json({ product });
+  const { filterValues, ...rest } = product;
+  res.json({ product: { ...rest, filterOptionIds: filterValues.map((value) => value.optionId) } });
 });
 
 /** Turns a slug or SKU collision into a message pointing at the field. */
@@ -144,11 +147,35 @@ function rethrowCollision(error: unknown): never {
   throw error;
 }
 
+/**
+ * Checks every filter option a product is being tagged with still exists and
+ * belongs to a custom filter, and returns the ids without duplicates.
+ *
+ * Without it a stale form (an option deleted in another tab) fails on the
+ * foreign key and the save answers with a bare 500.
+ */
+async function assertFilterOptions(ids: string[]): Promise<string[]> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return unique;
+
+  const found = await prisma.filterOption.count({
+    where: { id: { in: unique }, filter: { kind: 'ATTRIBUTE' } },
+  });
+  if (found !== unique.length) {
+    throw new ValidationError(
+      'One of the shop filter options no longer exists. Reload the page and try again.',
+      [{ field: 'filterOptionIds', message: 'Reload to see the current options.' }],
+    );
+  }
+  return unique;
+}
+
 adminCatalogueRouter.post('/admin/products', async (req, res) => {
   const user = await requirePermission(req, 'product.write');
   const input = parseBody(req, productSchema);
 
-  const { variants, images, ...fields } = input;
+  const { variants, images, filterOptionIds, ...fields } = input;
+  const optionIds = await assertFilterOptions(filterOptionIds);
 
   try {
     const product = await prisma.product.create({
@@ -157,6 +184,7 @@ adminCatalogueRouter.post('/admin/products', async (req, res) => {
         publishedAt: fields.status === 'ACTIVE' ? new Date() : null,
         variants: { create: variants.map(({ id: _id, ...variant }) => variant) },
         images: { create: images.map(({ id: _id, variantId: _variantId, ...image }) => image) },
+        filterValues: { create: optionIds.map((optionId) => ({ optionId })) },
       },
       select: { id: true, slug: true, name: true },
     });
@@ -189,7 +217,8 @@ adminCatalogueRouter.patch('/admin/products/:id', async (req, res) => {
   });
   if (!before) throw new NotFoundError('Product');
 
-  const { variants, images, ...fields } = input;
+  const { variants, images, filterOptionIds, ...fields } = input;
+  const optionIds = await assertFilterOptions(filterOptionIds);
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -228,6 +257,15 @@ adminCatalogueRouter.patch('/admin/products/:id', async (req, res) => {
             position,
             productId: before.id,
           })),
+        });
+      }
+
+      // Filter tags carry no references, so like images the set is replaced.
+      await tx.productFilterValue.deleteMany({ where: { productId: before.id } });
+      if (optionIds.length > 0) {
+        await tx.productFilterValue.createMany({
+          data: optionIds.map((optionId) => ({ productId: before.id, optionId })),
+          skipDuplicates: true,
         });
       }
 
@@ -426,5 +464,357 @@ adminCatalogueRouter.patch('/admin/categories/:id', async (req, res) => {
   });
 
   await invalidateCatalogue();
+  res.json({ ok: true });
+});
+
+// ── Storefront filters ─────────────────────────────────────────────────────
+
+const newFilterSchema = z.object({
+  label: safeText(40, 'Name').pipe(z.string().min(1, 'Name the filter.')),
+  options: z
+    .array(safeText(40, 'Option').pipe(z.string().min(1)))
+    .max(50)
+    .default([]),
+});
+
+const updateFilterSchema = z
+  .object({
+    label: safeText(40, 'Name').pipe(z.string().min(1, 'Name the filter.')).optional(),
+    isVisible: z.boolean().optional(),
+  })
+  .refine(
+    (value) => value.label !== undefined || value.isVisible !== undefined,
+    'Nothing to change.',
+  );
+
+const optionSchema = z.object({
+  label: safeText(40, 'Option').pipe(z.string().min(1, 'Name the option.')),
+});
+
+const orderSchema = z.object({ ids: z.array(z.string().min(1).max(64)).min(1).max(50) });
+
+/** Option labels as URL-safe slugs, suffixed when two would collide. */
+function optionSlugs(labels: string[], taken: Iterable<string> = []): string[] {
+  const used = new Set(taken);
+  return labels.map((label) => {
+    const slug = uniqueSlug(slugify(label) || 'option', used);
+    used.add(slug);
+    return slug;
+  });
+}
+
+const sameLabel = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** Every filter, built-in and custom, with how many products carry each option. */
+adminCatalogueRouter.get('/admin/filters', async (req, res) => {
+  await requirePermission(req, 'product.read');
+
+  const [filters, counts] = await Promise.all([
+    prisma.storefrontFilter.findMany({
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+      include: { options: { orderBy: [{ position: 'asc' }, { label: 'asc' }] } },
+    }),
+    prisma.productFilterValue.groupBy({ by: ['optionId'], _count: { _all: true } }),
+  ]);
+
+  const countByOption = new Map(counts.map((row) => [row.optionId, row._count._all]));
+
+  res.json({
+    filters: filters.map((filter) => ({
+      id: filter.id,
+      kind: filter.kind,
+      label: filter.label,
+      slug: filter.slug,
+      position: filter.position,
+      isVisible: filter.isVisible,
+      options: filter.options.map((option) => ({
+        id: option.id,
+        label: option.label,
+        slug: option.slug,
+        position: option.position,
+        productCount: countByOption.get(option.id) ?? 0,
+      })),
+    })),
+  });
+});
+
+/** A custom filter, added at the bottom of the panel. */
+adminCatalogueRouter.post('/admin/filters', async (req, res) => {
+  const user = await requirePermission(req, 'product.write');
+  const input = parseBody(req, newFilterSchema);
+
+  const slug = slugify(input.label);
+  if (!slug) {
+    throw new ValidationError('Use letters or numbers in the filter name.', [
+      { field: 'label', message: 'Use letters or numbers.' },
+    ]);
+  }
+
+  // "Eid" and "eid" are one choice to a shopper; the first spelling wins.
+  const labels = input.options.filter(
+    (label, index, all) => all.findIndex((other) => sameLabel(other, label)) === index,
+  );
+  const slugs = optionSlugs(labels);
+  const last = await prisma.storefrontFilter.aggregate({ _max: { position: true } });
+
+  try {
+    const filter = await prisma.$transaction(async (tx) => {
+      const created = await tx.storefrontFilter.create({
+        data: {
+          kind: 'ATTRIBUTE',
+          label: input.label,
+          slug,
+          position: (last._max.position ?? -1) + 1,
+          options: {
+            create: labels.map((label, position) => ({ label, slug: slugs[position], position })),
+          },
+        },
+        select: { id: true, label: true },
+      });
+
+      await recordAudit(
+        {
+          actor: actorFrom(user),
+          action: 'filter.create',
+          entityType: 'StorefrontFilter',
+          entityId: created.id,
+          summary: `Created the ${created.label} filter`,
+          after: { label: input.label, options: labels },
+          ip: ipHash(req),
+          userAgent: req.get('user-agent') ?? null,
+        },
+        tx,
+      );
+
+      return created;
+    });
+
+    res.status(201).json({ filter });
+  } catch (error) {
+    if (isUniqueViolation(error, 'slug')) {
+      throw new ConflictError('There is already a filter with that name.');
+    }
+    throw error;
+  }
+});
+
+/** The panel order: every filter id, top to bottom. */
+adminCatalogueRouter.put('/admin/filters/order', async (req, res) => {
+  const user = await requirePermission(req, 'product.write');
+  const { ids } = parseBody(req, orderSchema);
+
+  const existing = await prisma.storefrontFilter.findMany({ select: { id: true } });
+  const known = new Set(existing.map((filter) => filter.id));
+
+  // A partial or stale list would leave two filters sharing a position.
+  if (
+    ids.length !== known.size ||
+    new Set(ids).size !== ids.length ||
+    !ids.every((id) => known.has(id))
+  ) {
+    throw new ConflictError('The filters changed while you were reordering. Reload and try again.');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const [position, id] of ids.entries()) {
+      await tx.storefrontFilter.update({ where: { id }, data: { position } });
+    }
+
+    await recordAudit(
+      {
+        actor: actorFrom(user),
+        action: 'filter.reorder',
+        entityType: 'StorefrontFilter',
+        summary: 'Reordered the shop filters',
+        after: { ids },
+        ip: ipHash(req),
+        userAgent: req.get('user-agent') ?? null,
+      },
+      tx,
+    );
+  });
+
+  res.json({ ok: true });
+});
+
+/**
+ * Rename a filter or show and hide it. Built-ins can be renamed and hidden;
+ * the slug is left alone on rename because it is in shoppers' links.
+ */
+adminCatalogueRouter.patch('/admin/filters/:id', async (req, res) => {
+  const user = await requirePermission(req, 'product.write');
+  const input = parseBody(req, updateFilterSchema);
+
+  const before = await prisma.storefrontFilter.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, label: true, isVisible: true },
+  });
+  if (!before) throw new NotFoundError('Filter');
+
+  const after = await prisma.storefrontFilter.update({
+    where: { id: before.id },
+    data: input,
+    select: { id: true, label: true, isVisible: true },
+  });
+
+  await recordAudit({
+    actor: actorFrom(user),
+    action: 'filter.update',
+    entityType: 'StorefrontFilter',
+    entityId: before.id,
+    summary: `Updated the ${after.label} filter`,
+    before,
+    after,
+    ip: ipHash(req),
+    userAgent: req.get('user-agent') ?? null,
+  });
+
+  res.json({ filter: after });
+});
+
+/**
+ * Deleting a custom filter.
+ *
+ * Allowed, unlike products or coupons: nothing financial points at a filter.
+ * Its options and product tags go with it. Built-ins are hidden instead,
+ * because the panel's colour, price, fabric and fit handling is built on them.
+ */
+adminCatalogueRouter.delete('/admin/filters/:id', async (req, res) => {
+  const user = await requirePermission(req, 'product.write');
+
+  const filter = await prisma.storefrontFilter.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, kind: true, label: true },
+  });
+  if (!filter) throw new NotFoundError('Filter');
+  if (filter.kind !== 'ATTRIBUTE') {
+    throw new ConflictError(`${filter.label} is built in and cannot be deleted. Hide it instead.`);
+  }
+
+  await prisma.storefrontFilter.delete({ where: { id: filter.id } });
+
+  await recordAudit({
+    actor: actorFrom(user),
+    action: 'filter.delete',
+    entityType: 'StorefrontFilter',
+    entityId: filter.id,
+    summary: `Deleted the ${filter.label} filter`,
+    before: { label: filter.label },
+    ip: ipHash(req),
+    userAgent: req.get('user-agent') ?? null,
+  });
+
+  res.json({ ok: true });
+});
+
+adminCatalogueRouter.post('/admin/filters/:id/options', async (req, res) => {
+  const user = await requirePermission(req, 'product.write');
+  const { label } = parseBody(req, optionSchema);
+
+  const filter = await prisma.storefrontFilter.findUnique({
+    where: { id: req.params.id },
+    select: {
+      id: true,
+      kind: true,
+      label: true,
+      options: { select: { label: true, slug: true, position: true } },
+    },
+  });
+  if (!filter) throw new NotFoundError('Filter');
+  if (filter.kind !== 'ATTRIBUTE') {
+    throw new ConflictError(
+      `${filter.label} takes its choices from product details, so options cannot be added to it.`,
+    );
+  }
+  if (filter.options.some((option) => sameLabel(option.label, label))) {
+    throw new ConflictError(`${filter.label} already has an option called ${label}.`);
+  }
+
+  const [slug] = optionSlugs(
+    [label],
+    filter.options.map((option) => option.slug),
+  );
+  const position = filter.options.reduce((max, option) => Math.max(max, option.position), -1) + 1;
+
+  const option = await prisma.filterOption.create({
+    data: { filterId: filter.id, label, slug, position },
+    select: { id: true, label: true, slug: true },
+  });
+
+  await recordAudit({
+    actor: actorFrom(user),
+    action: 'filter.update',
+    entityType: 'StorefrontFilter',
+    entityId: filter.id,
+    summary: `Added ${label} to the ${filter.label} filter`,
+    after: { option: label },
+    ip: ipHash(req),
+    userAgent: req.get('user-agent') ?? null,
+  });
+
+  res.status(201).json({ option });
+});
+
+/** Rename an option. Its slug stays, so shared links keep working. */
+adminCatalogueRouter.patch('/admin/filter-options/:id', async (req, res) => {
+  const user = await requirePermission(req, 'product.write');
+  const { label } = parseBody(req, optionSchema);
+
+  const option = await prisma.filterOption.findUnique({
+    where: { id: req.params.id },
+    select: {
+      id: true,
+      label: true,
+      filter: { select: { id: true, label: true, options: { select: { id: true, label: true } } } },
+    },
+  });
+  if (!option) throw new NotFoundError('Filter option');
+
+  if (
+    option.filter.options.some((other) => other.id !== option.id && sameLabel(other.label, label))
+  ) {
+    throw new ConflictError(`${option.filter.label} already has an option called ${label}.`);
+  }
+
+  await prisma.filterOption.update({ where: { id: option.id }, data: { label } });
+
+  await recordAudit({
+    actor: actorFrom(user),
+    action: 'filter.update',
+    entityType: 'StorefrontFilter',
+    entityId: option.filter.id,
+    summary: `Renamed ${option.label} to ${label} in the ${option.filter.label} filter`,
+    before: { option: option.label },
+    after: { option: label },
+    ip: ipHash(req),
+    userAgent: req.get('user-agent') ?? null,
+  });
+
+  res.json({ ok: true });
+});
+
+/** Remove an option; the products tagged with it simply lose the tag. */
+adminCatalogueRouter.delete('/admin/filter-options/:id', async (req, res) => {
+  const user = await requirePermission(req, 'product.write');
+
+  const option = await prisma.filterOption.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, label: true, filter: { select: { id: true, label: true } } },
+  });
+  if (!option) throw new NotFoundError('Filter option');
+
+  await prisma.filterOption.delete({ where: { id: option.id } });
+
+  await recordAudit({
+    actor: actorFrom(user),
+    action: 'filter.update',
+    entityType: 'StorefrontFilter',
+    entityId: option.filter.id,
+    summary: `Removed ${option.label} from the ${option.filter.label} filter`,
+    before: { option: option.label },
+    ip: ipHash(req),
+    userAgent: req.get('user-agent') ?? null,
+  });
+
   res.json({ ok: true });
 });

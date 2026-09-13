@@ -1,5 +1,6 @@
 import { prisma } from '../lib/db';
 import { CACHE_KEYS, CACHE_TTL, cached } from '../lib/cache';
+import type { FacetGroup } from '@momishop/shared/api-types';
 import type { ProductFilter } from '@momishop/shared/validation';
 import type { Prisma } from '@prisma/client';
 
@@ -110,6 +111,24 @@ function storefrontWhere(filter: Partial<ProductFilter>): Prisma.ProductWhereInp
     where.requiresMeasurements = filter.fit === 'made-to-measure';
   }
 
+  if (filter.attrs && filter.attrs.length > 0) {
+    // Options within one filter widen (Eid or Wedding); separate filters
+    // narrow (Eid and Embroidered) — the way a shopper reads the panel.
+    const byFilter = new Map<string, string[]>();
+    for (const pair of filter.attrs) {
+      const [filterSlug, optionSlug] = pair.split(':');
+      byFilter.set(filterSlug, [...(byFilter.get(filterSlug) ?? []), optionSlug]);
+    }
+
+    for (const [filterSlug, optionSlugs] of byFilter) {
+      and.push({
+        filterValues: {
+          some: { option: { slug: { in: optionSlugs }, filter: { slug: filterSlug } } },
+        },
+      });
+    }
+  }
+
   const tags = Array.isArray(filter.tags) ? filter.tags : filter.tags ? [filter.tags] : [];
   if (tags.length > 0) {
     where.tags = { hasSome: tags };
@@ -133,27 +152,36 @@ function storefrontWhere(filter: Partial<ProductFilter>): Prisma.ProductWhereInp
   return where;
 }
 
-export interface FilterFacets {
-  colors: { name: string; hex: string | null; count: number }[];
-  fabrics: { name: string; count: number }[];
-  price: { min: number; max: number };
-  fits: { madeToMeasure: number; readyMade: number };
-}
-
 /**
- * The options worth offering in the filter panel.
+ * The filter panel for the category or search being browsed.
  *
- * Scoped to what is being browsed — the category or the search — and
- * deliberately not to the filters already applied, so ticking one colour does
- * not make every other colour disappear. Only values some visible product has
- * are returned: a filter that can only ever produce an empty page is a trap.
+ * Which groups appear, what they are called and their order are set by staff
+ * (StorefrontFilter rows). The choices inside each group are scoped to what is
+ * being browsed — the category or the search — and deliberately not to the
+ * filters already applied, so ticking one colour does not make every other
+ * colour disappear. Only values some visible product has are offered, and a
+ * group with nothing to offer is left out: a filter that can only ever produce
+ * an empty page is a trap.
  */
 export async function getFilterFacets(
   scope: Pick<ProductFilter, 'category' | 'q'>,
-): Promise<FilterFacets> {
+): Promise<FacetGroup[]> {
   const where = storefrontWhere(scope);
 
-  const [colourRows, fabricRows, price, fitRows] = await Promise.all([
+  const [definitions, colourRows, fabricRows, price, fitRows, optionRows] = await Promise.all([
+    prisma.storefrontFilter.findMany({
+      where: { isVisible: true },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        kind: true,
+        label: true,
+        slug: true,
+        options: {
+          orderBy: [{ position: 'asc' }, { label: 'asc' }],
+          select: { id: true, label: true, slug: true },
+        },
+      },
+    }),
     prisma.productVariant.groupBy({
       by: ['name', 'colorHex'],
       where: { kind: 'COLOR', isActive: true, product: where },
@@ -170,33 +198,87 @@ export async function getFilterFacets(
       where,
       _count: { _all: true },
     }),
+    prisma.productFilterValue.groupBy({
+      by: ['optionId'],
+      where: { product: where },
+      _count: { _all: true },
+    }),
   ]);
 
   // The same colour entered as "Black" on one product and "black" on another
   // is one choice to a shopper, not two.
-  const colours = new Map<string, { name: string; hex: string | null; count: number }>();
+  const colourMap = new Map<string, { name: string; hex: string | null; count: number }>();
   for (const row of colourRows) {
     const key = row.name.trim().toLowerCase();
-    const existing = colours.get(key);
+    const existing = colourMap.get(key);
     if (existing) {
       existing.count += row._count._all;
       existing.hex ??= row.colorHex;
     } else {
-      colours.set(key, { name: row.name.trim(), hex: row.colorHex, count: row._count._all });
+      colourMap.set(key, { name: row.name.trim(), hex: row.colorHex, count: row._count._all });
     }
   }
 
-  return {
-    colors: [...colours.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
-    fabrics: fabricRows
-      .flatMap((row) => (row.fabric ? [{ name: row.fabric, count: row._count._all }] : []))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    price: { min: price._min.basePrice ?? 0, max: price._max.basePrice ?? 0 },
-    fits: {
-      madeToMeasure: fitRows.find((row) => row.requiresMeasurements)?._count._all ?? 0,
-      readyMade: fitRows.find((row) => !row.requiresMeasurements)?._count._all ?? 0,
-    },
-  };
+  const colors = [...colourMap.values()].sort(
+    (a, b) => b.count - a.count || a.name.localeCompare(b.name),
+  );
+  const fabrics = fabricRows
+    .flatMap((row) => (row.fabric ? [{ name: row.fabric, count: row._count._all }] : []))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const madeToMeasure = fitRows.find((row) => row.requiresMeasurements)?._count._all ?? 0;
+  const readyMade = fitRows.find((row) => !row.requiresMeasurements)?._count._all ?? 0;
+  const optionCounts = new Map(optionRows.map((row) => [row.optionId, row._count._all]));
+
+  const groups: FacetGroup[] = [];
+
+  for (const definition of definitions) {
+    const { label } = definition;
+
+    switch (definition.kind) {
+      case 'COLOR':
+        if (colors.length > 0) groups.push({ kind: 'COLOR', label, colors });
+        break;
+
+      case 'PRICE':
+        if ((price._max.basePrice ?? 0) > 0) {
+          groups.push({
+            kind: 'PRICE',
+            label,
+            min: price._min.basePrice ?? 0,
+            max: price._max.basePrice ?? 0,
+          });
+        }
+        break;
+
+      case 'FABRIC':
+        if (fabrics.length > 0) groups.push({ kind: 'FABRIC', label, fabrics });
+        break;
+
+      case 'FIT':
+        // A choice between two kinds only makes sense when both are in view.
+        if (madeToMeasure > 0 && readyMade > 0) {
+          groups.push({ kind: 'FIT', label, madeToMeasure, readyMade });
+        }
+        break;
+
+      case 'ATTRIBUTE': {
+        const options = definition.options
+          .map((option) => ({
+            label: option.label,
+            slug: option.slug,
+            count: optionCounts.get(option.id) ?? 0,
+          }))
+          .filter((option) => option.count > 0);
+
+        if (options.length > 0) {
+          groups.push({ kind: 'ATTRIBUTE', label, slug: definition.slug, options });
+        }
+        break;
+      }
+    }
+  }
+
+  return groups;
 }
 
 export async function listProducts(filter: ProductFilter): Promise<ProductListResult> {

@@ -428,6 +428,65 @@ test.describe('admin', () => {
     expect(body).not.toContain('passwordHash');
     expect(body).not.toContain('$2b$');
   });
+
+  test('an admin can create a filter, tag a product, and shoppers can filter by it', async ({
+    page,
+  }, testInfo) => {
+    const signIn = await page.request.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(signIn.status()).toBe(200);
+
+    // Unique per run and per project, since both projects run at once.
+    const stamp = `${Date.now()}${testInfo.workerIndex}`;
+    const filterName = `Occasion ${stamp}`;
+
+    await page.goto('/admin/filters');
+    const main = page.locator('#main-content');
+    await main.getByRole('textbox', { name: /^Name/ }).fill(filterName);
+    await main.getByRole('textbox', { name: /^Options/ }).fill('Eid, Wedding');
+    await main.getByRole('button', { name: 'Create filter' }).click();
+    await expect(main.getByRole('textbox', { name: `Rename ${filterName}` })).toBeVisible();
+
+    // A different product per project, so the two runs never save over each other.
+    await page.goto('/admin/products?status=ACTIVE');
+    await main
+      .locator('table a')
+      .nth(testInfo.project.name === 'mobile' ? 1 : 0)
+      .click();
+    await expect(main.getByRole('heading', { level: 1 })).toBeVisible();
+
+    await main.getByRole('group', { name: filterName }).getByLabel('Eid').check();
+    await main.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByText('Product saved.')).toBeVisible();
+
+    try {
+      await page.goto('/products');
+      const toggle = page.getByRole('button', { name: /^Filters/ });
+      if (await toggle.isVisible()) await toggle.click();
+
+      const panel = page.locator('#product-filters');
+      const group = panel.getByRole('group', { name: filterName });
+      await expect(group).toBeVisible();
+      // Only options some product carries are offered.
+      await expect(group.getByText('Wedding')).toHaveCount(0);
+
+      await group.getByText('Eid', { exact: true }).click();
+      await panel.getByRole('button', { name: 'Apply filters' }).click();
+
+      await page.waitForURL(new RegExp(`attrs=occasion-${stamp}(%3A|:)eid`));
+      await expect(page.getByText(/^1 piece$/)).toBeVisible();
+    } finally {
+      // Leave the panel as it was for the next run.
+      const list = await page.request.get('/api/admin/filters');
+      const { filters } = (await list.json()) as { filters: { id: string; label: string }[] };
+      const created = filters.find((filter) => filter.label === filterName);
+      if (created) await page.request.delete(`/api/admin/filters/${created.id}`);
+    }
+  });
 });
 
 test.describe('operational endpoints', () => {

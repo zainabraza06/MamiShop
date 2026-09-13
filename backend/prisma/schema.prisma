@@ -314,6 +314,8 @@ model Product {
   wishlisted WishlistItem[]
   viewed     RecentlyViewed[]
 
+  filterValues ProductFilterValue[]
+
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -326,6 +328,69 @@ model Product {
   @@index([ratingAverage])
   @@index([salesCount])
   @@map("products")
+}
+
+// Storefront filters ─────────────────────────────────────────────────────────
+
+/// The built-in filters are rows too, so staff can rename, hide and reorder
+/// them alongside custom ones. A built-in takes its choices from product data
+/// (variants, fabric, price, fit); a custom filter's come from FilterOption.
+enum FilterKind {
+  COLOR
+  PRICE
+  FABRIC
+  FIT
+  ATTRIBUTE
+}
+
+model StorefrontFilter {
+  id        String     @id @default(cuid())
+  kind      FilterKind
+  label     String
+  /// URL key for a custom filter (`?attrs=occasion:eid`). Never changed on
+  /// rename: it is in shoppers' bookmarks and shared links.
+  slug      String     @unique
+  position  Int        @default(0)
+  isVisible Boolean    @default(true)
+
+  options FilterOption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isVisible, position])
+  @@map("storefront_filters")
+}
+
+model FilterOption {
+  id       String @id @default(cuid())
+  filterId String
+  label    String
+  slug     String
+  position Int    @default(0)
+
+  filter   StorefrontFilter     @relation(fields: [filterId], references: [id], onDelete: Cascade)
+  products ProductFilterValue[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([filterId, slug])
+  @@map("filter_options")
+}
+
+/// A product tagged with a custom filter option. Nothing financial points
+/// here, so the rows go when their product, option or filter does.
+model ProductFilterValue {
+  productId String
+  optionId  String
+
+  product Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  option  FilterOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@id([productId, optionId])
+  @@index([optionId])
+  @@map("product_filter_values")
 }
 
 enum VariantKind {
@@ -541,8 +606,8 @@ model Order {
   cancelledAt    DateTime?
   cancelReason   String?
 
-  customerNote String?
-  staffNote    String?
+  customerNote     String?
+  staffNote        String?
   /// Set when an admin creates the order by hand (phone / WhatsApp sale).
   createdByStaffId String?
   isManual         Boolean @default(false)
@@ -560,9 +625,9 @@ model Order {
   returnRequests ReturnRequest[]
   payments       PaymentTransaction[]
 
-  placedAt  DateTime @default(now())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  placedAt   DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   /// Retention policy anchor — see docs/DATA_RETENTION.md
   purgeAfter DateTime?
 
@@ -675,8 +740,8 @@ enum ReturnKind {
 }
 
 model ReturnRequest {
-  id            String @id @default(cuid())
-  requestNumber String @unique
+  id            String  @id @default(cuid())
+  requestNumber String  @unique
   orderId       String
   userId        String?
 
@@ -799,9 +864,9 @@ model Coupon {
 // ═══════════════════════════════════════════════ Shipping & tax ═════════════
 
 model ShippingZone {
-  id      String   @id @default(cuid())
-  name    String
-  country String   @default("PK")
+  id       String   @id @default(cuid())
+  name     String
+  country  String   @default("PK")
   /// Match on city or state; empty = catch-all for the country.
   cities   String[] @default([])
   states   String[] @default([])
@@ -821,12 +886,12 @@ model ShippingRate {
   id     String @id @default(cuid())
   zoneId String
 
-  name        String // "Standard (3-5 days)"
-  description String?
+  name         String // "Standard (3-5 days)"
+  description  String?
   /// Flat fee in minor units.
-  amount Int
+  amount       Int
   /// Order subtotal at or above which shipping is free. Null = never free.
-  freeAbove Int?
+  freeAbove    Int?
   /// Extra charge applied to cash-on-delivery orders in this zone.
   codSurcharge Int     @default(0)
   minDays      Int     @default(3)
@@ -841,13 +906,13 @@ model ShippingRate {
 }
 
 model TaxRule {
-  id       String  @id @default(cuid())
-  name     String
-  country  String  @default("PK")
-  state    String?
-  taxClass String  @default("STANDARD")
+  id          String  @id @default(cuid())
+  name        String
+  country     String  @default("PK")
+  state       String?
+  taxClass    String  @default("STANDARD")
   /// Basis points (e.g. 1700 = 17.00%). Integers avoid float drift.
-  rateBps Int
+  rateBps     Int
   /// True when displayed prices already include this tax.
   isInclusive Boolean @default(true)
   priority    Int     @default(0)
@@ -992,7 +1057,7 @@ model ContentBlock {
   key  String @unique // HOME_HERO | HOME_FEATURED | ANNOUNCEMENT_BAR | …
   type String // HERO | BANNER_GRID | COLLECTION_STRIP | RICH_TEXT | USP_ROW
 
-  title String?
+  title    String?
   /// Arbitrary structured payload rendered by a matching React component.
   data     Json
   position Int     @default(0)
@@ -1055,9 +1120,9 @@ model AuditLog {
   entityId   String?
   summary    String?
   /// { before: {...}, after: {...} } — sensitive fields redacted.
-  diff      Json?
-  ipHash    String?
-  userAgent String?
+  diff       Json?
+  ipHash     String?
+  userAgent  String?
 
   actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
 

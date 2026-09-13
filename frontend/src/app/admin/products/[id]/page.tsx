@@ -2,7 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, ExternalLink } from 'lucide-react';
-import type { AdminCategory, AdminProductDetail } from '@momishop/shared/api-types';
+import type {
+  AdminCategory,
+  AdminProductDetail,
+  AdminStorefrontFilter,
+} from '@momishop/shared/api-types';
 import { formatDateTime } from '@momishop/shared/text';
 import { ArchiveProduct } from '@/components/admin/product-actions';
 import { ProductForm } from '@/components/admin/product-form';
@@ -15,12 +19,17 @@ export const metadata: Metadata = { title: 'Edit product' };
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [detail, categoryList] = await Promise.all([
+  const [detail, categoryList, filterList] = await Promise.all([
     apiGet<{ product: AdminProductDetail }>(`/admin/products/${id}`).catch((error: unknown) => {
       if (error instanceof ApiError && error.status === 404) return null;
       throw error;
     }),
     apiGet<{ categories: AdminCategory[] }>('/admin/categories'),
+    // Optional to editing: if filters cannot be loaded (an API a release
+    // behind), the form still works, just without the Shop filters section.
+    apiGet<{ filters: AdminStorefrontFilter[] }>('/admin/filters').catch(() => ({
+      filters: [] as AdminStorefrontFilter[],
+    })),
   ]);
 
   if (!detail) notFound();
@@ -63,7 +72,11 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      <ProductForm product={product} categories={categoryList.categories} />
+      <ProductForm
+        product={product}
+        categories={categoryList.categories}
+        filters={filterList.filters}
+      />
     </div>
   );
 }
