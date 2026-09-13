@@ -230,3 +230,33 @@ test.describe('admin sidebar', () => {
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeInViewport();
   });
 });
+
+test.describe('admin navigation', () => {
+  test('every section in the sidebar opens a real page', async ({ page }) => {
+    const signIn = await page.request.post('/api/auth/login', {
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL ?? 'admin@momishop.pk',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe!2024',
+      },
+    });
+    expect(signIn.status()).toBe(200);
+
+    // Desktop width, where the sidebar is always open: this checks the routes,
+    // not the mobile drawer, which has tests of its own.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/admin');
+    // A super admin sees every section, so this visits all of them.
+    const hrefs = await page
+      .getByRole('navigation', { name: 'Admin' })
+      .getByRole('link')
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
+    expect(hrefs.length).toBeGreaterThanOrEqual(13);
+
+    for (const href of hrefs) {
+      const response = await page.goto(href);
+      expect(response?.status(), href).toBe(200);
+      await expect(page.getByRole('heading', { level: 1 }), href).toBeVisible();
+      await expect(page.getByText(/page not found|something went wrong/i), href).toHaveCount(0);
+    }
+  });
+});
