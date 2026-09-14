@@ -17,6 +17,7 @@ const prismaMock = vi.hoisted(() => ({
 
 vi.mock('../src/lib/db', () => ({ prisma: prismaMock }));
 
+import { MistralError } from '@mistralai/mistralai/models/errors';
 import { createApp } from '../src/app';
 import { __setStoreForTesting } from '../src/lib/redis';
 import { __setAssistantClientForTesting } from '../src/services/assistant';
@@ -210,6 +211,45 @@ describe('asking a question', () => {
 
     expect(response.status).toBe(200);
     expect(complete.mock.calls[1][0].messages.at(-1).content).toContain('lookup failed');
+  });
+
+  it('moves to the next model when Mistral rate limits one', async () => {
+    const rateLimited = new MistralError('Rate limit exceeded', {
+      response: new Response('{"message":"Rate limit exceeded"}', { status: 429 }),
+      request: new Request('https://api.mistral.ai/v1/chat/completions', { method: 'POST' }),
+      body: '{"message":"Rate limit exceeded"}',
+    });
+    complete.mockRejectedValueOnce(rateLimited).mockResolvedValueOnce(says('Hello!'));
+
+    const response = await request(app)
+      .post('/api/assistant/chat')
+      .set('Origin', ORIGIN)
+      .send(question);
+
+    expect(response.status).toBe(200);
+    expect(response.body.reply).toBe('Hello!');
+    expect(complete.mock.calls.map(([params]) => params.model)).toEqual([
+      'ministral-14b-latest',
+      'ministral-8b-latest',
+    ]);
+  });
+
+  it('says it is busy only when every model is rate limited', async () => {
+    const rateLimited = () =>
+      new MistralError('Rate limit exceeded', {
+        response: new Response('{}', { status: 429 }),
+        request: new Request('https://api.mistral.ai/v1/chat/completions', { method: 'POST' }),
+        body: '{}',
+      });
+    complete.mockRejectedValueOnce(rateLimited()).mockRejectedValueOnce(rateLimited());
+
+    const response = await request(app)
+      .post('/api/assistant/chat')
+      .set('Origin', ORIGIN)
+      .send(question);
+
+    expect(response.status).toBe(503);
+    expect(response.body.error).toContain('busy');
   });
 
   it('reports a model outage as a message, not a crash', async () => {

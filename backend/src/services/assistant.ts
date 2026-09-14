@@ -21,8 +21,13 @@ import { getShippingZones } from './checkout';
  * products, which is what makes it safe to open to anonymous visitors.
  */
 
-/** Small is plenty for catalogue lookups; set MISTRAL_MODEL to try a larger one. */
-const DEFAULT_MODEL = 'mistral-small-latest';
+/**
+ * Tried in order. When Mistral rate limits one (on the free tier some models
+ * refuse every request), the next answers instead. MISTRAL_MODEL goes first.
+ */
+const FALLBACK_MODELS = ['ministral-14b-latest', 'ministral-8b-latest'];
+/** How long a rate-limited model is skipped before it is tried again. */
+const COOL_DOWN_MS = 60_000;
 /** Tool rounds per question. A normal answer takes one or two. */
 const MAX_ROUNDS = 6;
 const SEARCH_LIMIT = 8;
@@ -34,6 +39,7 @@ type Messages = ChatCompletionRequest['messages'];
 type Client = Pick<Mistral, 'chat'>;
 
 let client: Client | null = null;
+const coolingUntil = new Map<string, number>();
 
 export function assistantConfigured(): boolean {
   return Boolean(process.env.MISTRAL_API_KEY);
@@ -43,12 +49,12 @@ function getClient(): Client {
   client ??= new Mistral({
     apiKey: process.env.MISTRAL_API_KEY,
     timeoutMs: 60_000,
-    // One question makes several calls back to back (look up, then answer),
-    // and Mistral's free tier allows about one request a second. Waiting and
-    // retrying turns that 429 into a slightly slower answer instead of an error.
+    // A short wait rides out a burst: one question makes several calls back to
+    // back. Kept brief, because a model that refuses every request should hand
+    // over to the next one quickly rather than keep the shopper waiting.
     retryConfig: {
       strategy: 'backoff',
-      backoff: { initialInterval: 1_000, maxInterval: 8_000, exponent: 2, maxElapsedTime: 25_000 },
+      backoff: { initialInterval: 500, maxInterval: 2_000, exponent: 2, maxElapsedTime: 3_000 },
       retryConnectionErrors: true,
     },
   });
@@ -57,6 +63,36 @@ function getClient(): Client {
 
 export function __setAssistantClientForTesting(fake: Client | null): void {
   client = fake;
+  coolingUntil.clear();
+}
+
+function modelsToTry(): string[] {
+  const configured = process.env.MISTRAL_MODEL?.trim();
+  const models = [...new Set([...(configured ? [configured] : []), ...FALLBACK_MODELS])];
+  const now = Date.now();
+  const ready = models.filter((model) => (coolingUntil.get(model) ?? 0) <= now);
+  // All cooling down: try them anyway rather than refuse outright.
+  return ready.length > 0 ? ready : models;
+}
+
+/** One chat call, moving to the next model when Mistral rate limits this one. */
+async function complete(params: Omit<ChatCompletionRequest, 'model'>) {
+  let lastError: unknown;
+  for (const model of modelsToTry()) {
+    try {
+      return await getClient().chat.complete({ ...params, model });
+    } catch (error) {
+      if (!(error instanceof MistralError && error.statusCode === 429)) throw error;
+      // Mistral's body says which limit: requests per second, or the quota.
+      logger.warn('Mistral rate limited the assistant', {
+        model,
+        body: error.body.slice(0, 500),
+      });
+      coolingUntil.set(model, Date.now() + COOL_DOWN_MS);
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 const SYSTEM_PROMPT = `You are the shopping assistant on MomiShop, a Pakistani online clothing shop selling women's three-piece and two-piece suits and formals, abayas, stoles, and girls' and boys' wear. Much of it is stitched to each customer's measurements. Prices are in Pakistani rupees.
@@ -409,8 +445,7 @@ export async function askAssistant(history: ChatMessage[]): Promise<AssistantRep
 
   try {
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      const response = await getClient().chat.complete({
-        model: process.env.MISTRAL_MODEL || DEFAULT_MODEL,
+      const response = await complete({
         messages,
         tools: TOOLS,
         toolChoice: 'auto',
@@ -460,8 +495,6 @@ export async function askAssistant(history: ChatMessage[]): Promise<AssistantRep
     return { reply: NO_ANSWER, products: [], customRequest: turn.customRequest };
   } catch (error) {
     if (error instanceof MistralError && error.statusCode === 429) {
-      // Mistral's body says which limit: requests per second, or the monthly quota.
-      logger.warn('Mistral rate limited the assistant', { body: error.body.slice(0, 500) });
       throw new AppError('The assistant is busy right now. Please try again in a minute.', {
         status: 503,
         code: 'ASSISTANT_BUSY',

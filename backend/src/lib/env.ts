@@ -61,7 +61,7 @@ const schema = z.object({
 
   /** Shopping assistant. Unset, the chat button stays hidden. */
   MISTRAL_API_KEY: optional,
-  /** Defaults to mistral-small-latest. */
+  /** A model to try first; the assistant falls back to Ministral models when it is rate limited. */
   MISTRAL_MODEL: optional,
 
   RESEND_API_KEY: optional,
