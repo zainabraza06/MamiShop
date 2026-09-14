@@ -46,7 +46,7 @@
     "@types/node": "^22.15.0",
     "@types/papaparse": "^5.3.16",
     "@types/supertest": "^7.2.1",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.0",
     "prisma": "^6.16.2",
     "supertest": "^7.2.2",
     "tsup": "^8.5.1",
