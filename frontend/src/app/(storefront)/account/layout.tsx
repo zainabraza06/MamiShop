@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SignOutButton } from '@/components/account/sign-out-button';
 
 /**
  * The customer's account area.
@@ -34,6 +35,9 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                 </Link>
               </li>
             ))}
+            <li className="lg:mt-2 lg:border-t lg:pt-2">
+              <SignOutButton className="w-full" />
+            </li>
           </ul>
         </nav>
 

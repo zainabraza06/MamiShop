@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react';
+import { SignOutButton } from '@/components/account/sign-out-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -247,6 +248,36 @@ export function SiteHeader({ categories, cartCount, isSignedIn, announcement }: 
                     )}
                   </li>
                 ))}
+              </ul>
+
+              <ul className="mt-6 space-y-1 border-t pt-6">
+                {isSignedIn ? (
+                  <>
+                    <li>
+                      <Link
+                        href="/account"
+                        className="flex min-h-11 items-center rounded-md px-3 text-base font-medium hover:bg-accent"
+                      >
+                        Your account
+                      </Link>
+                    </li>
+                    <li>
+                      <SignOutButton
+                        className="min-h-11 w-full text-base"
+                        onSignedOut={() => setMobileOpen(false)}
+                      />
+                    </li>
+                  </>
+                ) : (
+                  <li>
+                    <Link
+                      href="/login"
+                      className="flex min-h-11 items-center rounded-md px-3 text-base font-medium hover:bg-accent"
+                    >
+                      Sign in
+                    </Link>
+                  </li>
+                )}
               </ul>
             </nav>
           </div>,
