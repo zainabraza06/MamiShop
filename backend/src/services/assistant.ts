@@ -40,7 +40,18 @@ export function assistantConfigured(): boolean {
 }
 
 function getClient(): Client {
-  client ??= new Mistral({ apiKey: process.env.MISTRAL_API_KEY, timeoutMs: 60_000 });
+  client ??= new Mistral({
+    apiKey: process.env.MISTRAL_API_KEY,
+    timeoutMs: 60_000,
+    // One question makes several calls back to back (look up, then answer),
+    // and Mistral's free tier allows about one request a second. Waiting and
+    // retrying turns that 429 into a slightly slower answer instead of an error.
+    retryConfig: {
+      strategy: 'backoff',
+      backoff: { initialInterval: 1_000, maxInterval: 8_000, exponent: 2, maxElapsedTime: 25_000 },
+      retryConnectionErrors: true,
+    },
+  });
   return client;
 }
 
@@ -449,6 +460,8 @@ export async function askAssistant(history: ChatMessage[]): Promise<AssistantRep
     return { reply: NO_ANSWER, products: [], customRequest: turn.customRequest };
   } catch (error) {
     if (error instanceof MistralError && error.statusCode === 429) {
+      // Mistral's body says which limit: requests per second, or the monthly quota.
+      logger.warn('Mistral rate limited the assistant', { body: error.body.slice(0, 500) });
       throw new AppError('The assistant is busy right now. Please try again in a minute.', {
         status: 503,
         code: 'ASSISTANT_BUSY',
