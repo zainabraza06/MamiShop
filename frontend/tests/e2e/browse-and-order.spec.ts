@@ -237,6 +237,25 @@ test.describe('authorisation', () => {
     await page.goto('/login');
     await expect(page).toHaveURL(/\/admin$/);
   });
+
+  /**
+   * The sidebar hides the audit log from staff, but its address still works.
+   * The API refuses them, and the page used to crash on that refusal instead
+   * of saying so (a production "React error #441").
+   */
+  test('staff who open the audit log by its address are told it is for admins', async ({
+    page,
+  }) => {
+    const response = await page.request.post('/api/auth/login', {
+      data: { email: 'staff@momishop.pk', password: 'StaffPass!2024' },
+    });
+    expect(response.status()).toBe(200);
+
+    const visit = await page.goto('/admin/audit');
+    expect(visit?.status()).toBe(200);
+    await expect(page.getByText('The audit log is for admins')).toBeVisible();
+    await expect(page.getByText('Something went wrong')).toHaveCount(0);
+  });
 });
 
 test.describe('help and policy pages', () => {

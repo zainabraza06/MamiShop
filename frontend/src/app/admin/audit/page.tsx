@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
-import { apiGet } from '@/lib/api';
+import { ApiError, apiGet } from '@/lib/api';
 
 export const metadata: Metadata = { title: 'Audit log' };
 
@@ -69,9 +69,26 @@ export default async function AdminAuditPage({
   if (actor) query.set('actor', actor);
   if (cursor) query.set('cursor', cursor);
 
-  const { items, nextCursor, areas } = await apiGet<AdminAuditList>(
-    `/admin/audit?${query.toString()}`,
+  // The sidebar hides the audit log from staff, but the address still works.
+  // Without this, the API's refusal crashed the whole page.
+  const log = await apiGet<AdminAuditList>(`/admin/audit?${query.toString()}`).catch(
+    (error: unknown) => {
+      if (error instanceof ApiError && error.status === 403) return null;
+      throw error;
+    },
   );
+
+  if (!log) {
+    return (
+      <EmptyState
+        icon={ClipboardList}
+        title="The audit log is for admins"
+        description="Ask an admin or super admin if you need to know who changed something."
+      />
+    );
+  }
+
+  const { items, nextCursor, areas } = log;
 
   /** A link to this view with some parameters changed. */
   const hrefWith = (changes: Record<string, string | undefined>) => {
