@@ -11,7 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const prismaMock = vi.hoisted(() => ({
   user: { findUnique: vi.fn() },
-  product: { findMany: vi.fn(), count: vi.fn() },
+  product: { findMany: vi.fn(), count: vi.fn(), groupBy: vi.fn() },
+  productVariant: { groupBy: vi.fn() },
   page: { findMany: vi.fn() },
 }));
 
@@ -20,7 +21,7 @@ vi.mock('../src/lib/db', () => ({ prisma: prismaMock }));
 import { MistralError } from '@mistralai/mistralai/models/errors';
 import { createApp } from '../src/app';
 import { __setStoreForTesting } from '../src/lib/redis';
-import { __setAssistantClientForTesting } from '../src/services/assistant';
+import { __setAssistantClientForTesting, matchColours } from '../src/services/assistant';
 
 const app = createApp({ appUrl: 'http://localhost:3000', corsOrigins: [], trustProxy: 'false' });
 const ORIGIN = 'http://localhost:3000';
@@ -71,6 +72,17 @@ beforeEach(() => {
   __setStoreForTesting(null);
   __setAssistantClientForTesting({ chat: { complete } } as never);
   vi.stubEnv('MISTRAL_API_KEY', 'test-key');
+  // What is on sale: the words customers use get matched against these.
+  prismaMock.productVariant.groupBy.mockResolvedValue([
+    { name: 'Black' },
+    { name: 'Navy' },
+    { name: 'Midnight' },
+    { name: 'Dusty rose' },
+  ]);
+  prismaMock.product.groupBy.mockResolvedValue([
+    { fabric: 'Korean Nida matte' },
+    { fabric: 'Georgette' },
+  ]);
 });
 
 afterEach(() => {
@@ -262,5 +274,105 @@ describe('asking a question', () => {
 
     expect(response.status).toBe(502);
     expect(response.body.error).toContain('try again');
+  });
+});
+
+describe('understanding how customers describe what they want', () => {
+  const shopColours = ['Black', 'Navy', 'Midnight', 'Dusty rose'];
+
+  it('maps everyday and Roman Urdu colour words to the shop colours', () => {
+    expect(matchColours('navy blue', shopColours)).toEqual(['Navy', 'Midnight']);
+    expect(matchColours('neela', shopColours)).toEqual(['Navy', 'Midnight']);
+    expect(matchColours('pink', shopColours)).toEqual(['Dusty rose']);
+    expect(matchColours('kala', shopColours)).toEqual(['Black']);
+    expect(matchColours('emerald', shopColours)).toEqual([]);
+  });
+
+  const navyCard = {
+    ...card,
+    id: 'product_2',
+    slug: 'noor-nida-everyday-abaya',
+    name: 'Noor Nida Everyday Abaya',
+  };
+  const navyDetails = [
+    {
+      id: 'product_2',
+      fabric: 'Korean Nida matte',
+      variants: [
+        {
+          name: 'Navy',
+          kind: 'COLOR',
+          priceDelta: 0,
+          trackInventory: true,
+          stockOnHand: 4,
+          stockReserved: 0,
+        },
+      ],
+    },
+  ];
+
+  it('finds navy pieces when asked for a "navy blue dress"', async () => {
+    prismaMock.product.findMany
+      .mockResolvedValueOnce([navyCard])
+      .mockResolvedValueOnce(navyDetails);
+    prismaMock.product.count.mockResolvedValue(1);
+    complete
+      .mockResolvedValueOnce(callsTool('search_products', { query: 'navy blue dress' }))
+      .mockResolvedValueOnce(says('Yes! The Noor Nida Everyday Abaya comes in Navy.'));
+
+    const response = await request(app)
+      .post('/api/assistant/chat')
+      .set('Origin', ORIGIN)
+      .send({ messages: [{ role: 'user', content: 'if you have navy blue dress in stock?' }] });
+
+    expect(response.status).toBe(200);
+    const where = JSON.stringify(prismaMock.product.findMany.mock.calls[0][0].where);
+    expect(where).toContain('"Navy"');
+    expect(where).toContain('"Midnight"');
+    // "dress" is not searched for as if it were part of a product name.
+    expect(where).not.toContain('dress');
+    expect(response.body.products.map((p: { slug: string }) => p.slug)).toEqual([
+      'noor-nida-everyday-abaya',
+    ]);
+    const result = JSON.parse(complete.mock.calls[1][0].messages.at(-1).content);
+    expect(result.matchedColours).toEqual(['Midnight', 'Navy']);
+  });
+
+  it('broadens the search and says so when the words match nothing', async () => {
+    prismaMock.product.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([navyCard])
+      .mockResolvedValueOnce(navyDetails);
+    prismaMock.product.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    complete
+      .mockResolvedValueOnce(callsTool('search_products', { query: 'bridal', colors: ['navy'] }))
+      .mockResolvedValueOnce(says('No bridal pieces, but the Noor Nida Everyday Abaya is navy.'));
+
+    const response = await request(app)
+      .post('/api/assistant/chat')
+      .set('Origin', ORIGIN)
+      .send(question);
+
+    expect(response.status).toBe(200);
+    const result = JSON.parse(complete.mock.calls[1][0].messages.at(-1).content);
+    expect(result.note).toContain('Nothing matched "bridal"');
+    expect(result.products).toHaveLength(1);
+  });
+
+  it('offers the real colours instead of searching for one the shop does not have', async () => {
+    complete
+      .mockResolvedValueOnce(callsTool('search_products', { query: 'emerald abaya' }))
+      .mockResolvedValueOnce(says('We have no emerald, but we do have Black and Navy.'));
+
+    const response = await request(app)
+      .post('/api/assistant/chat')
+      .set('Origin', ORIGIN)
+      .send(question);
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.product.findMany).not.toHaveBeenCalled();
+    const result = JSON.parse(complete.mock.calls[1][0].messages.at(-1).content);
+    expect(result.total).toBe(0);
+    expect(result.coloursInStock).toEqual(['Black', 'Dusty rose', 'Midnight', 'Navy']);
   });
 });
