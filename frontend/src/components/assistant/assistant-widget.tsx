@@ -8,6 +8,7 @@ import type { AssistantProduct, AssistantReply } from '@momishop/shared/api-type
 import { formatMoney, type Currency } from '@momishop/shared/money';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { parseChatText, type InlinePart } from '@/lib/chat-format';
 
 /**
  * The shopping assistant's chat button, on every storefront page.
@@ -209,7 +210,13 @@ export function AssistantWidget({ isSignedIn }: { isSignedIn: boolean }) {
 
             {turns.map((turn, index) => (
               <div key={index} className="space-y-2">
-                <Bubble role={turn.role}>{turn.content}</Bubble>
+                <Bubble role={turn.role}>
+                  {turn.role === 'assistant' ? (
+                    <FormattedReply text={turn.content} />
+                  ) : (
+                    turn.content
+                  )}
+                </Bubble>
 
                 {turn.products && turn.products.length > 0 && (
                   <ul className="space-y-2">
@@ -273,9 +280,10 @@ export function AssistantWidget({ isSignedIn }: { isSignedIn: boolean }) {
   );
 }
 
+/** A div rather than a p: an assistant reply can contain a list. */
 function Bubble({ role, children }: { role: Turn['role']; children: React.ReactNode }) {
   return (
-    <p
+    <div
       className={
         role === 'user'
           ? 'ml-auto w-fit max-w-[85%] whitespace-pre-wrap rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground'
@@ -284,7 +292,60 @@ function Bubble({ role, children }: { role: Turn['role']; children: React.ReactN
     >
       <span className="sr-only">{role === 'user' ? 'You: ' : 'Assistant: '}</span>
       {children}
-    </p>
+    </div>
+  );
+}
+
+/**
+ * An assistant reply with its bold words and lists shown as such, rather than
+ * as the asterisks and dashes the model typed. Built from parsed data, never
+ * from HTML, so a reply cannot put markup on the page.
+ */
+function FormattedReply({ text }: { text: string }) {
+  return (
+    <div className="space-y-2">
+      {parseChatText(text).map((block, index) =>
+        block.type === 'paragraph' ? (
+          <p key={index}>
+            <Inline parts={block.parts} />
+          </p>
+        ) : block.ordered ? (
+          <ol key={index} className="list-decimal space-y-1 whitespace-normal ps-5">
+            {block.items.map((parts, itemIndex) => (
+              <li key={itemIndex}>
+                <Inline parts={parts} />
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <ul key={index} className="list-disc space-y-1 whitespace-normal ps-5">
+            {block.items.map((parts, itemIndex) => (
+              <li key={itemIndex}>
+                <Inline parts={parts} />
+              </li>
+            ))}
+          </ul>
+        ),
+      )}
+    </div>
+  );
+}
+
+function Inline({ parts }: { parts: InlinePart[] }) {
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.bold ? (
+          <strong key={index} className="font-semibold">
+            {part.text}
+          </strong>
+        ) : part.italic ? (
+          <em key={index}>{part.text}</em>
+        ) : (
+          <React.Fragment key={index}>{part.text}</React.Fragment>
+        ),
+      )}
+    </>
   );
 }
 
