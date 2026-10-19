@@ -38,7 +38,7 @@ jobs:
   run:
     name: Call the API
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - name: Work out which task this run is for
         id: task
@@ -64,9 +64,15 @@ jobs:
             exit 0
           fi
 
+          # Render's free plan sleeps after ~15 idle minutes and a cold start can
+          # take well over a minute, so wake the API first. Failure here is fine:
+          # the real call below decides whether the run passes.
+          echo "Warming up the API..."
+          curl -sS --max-time 180 -o /dev/null "${API_BASE_URL}/api/health" || echo "::warning::Warm-up did not get a response; trying the real call anyway."
+
           # -f so a non-2xx is a failed run rather than a silent no-op: an
           # outbox that has stopped draining should be visible, not guessed at.
-          RESPONSE=$(curl -fsS --max-time 120 -X POST \
+          RESPONSE=$(curl -fsS --max-time 180 --retry 2 --retry-all-errors --retry-delay 15 -X POST \
             -H "Authorization: Bearer $CRON_SECRET" \
             "${API_BASE_URL}${{ steps.task.outputs.path }}")
 
